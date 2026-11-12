@@ -1,0 +1,12 @@
+# Instagram-аккаунты для отслеживания. Начните с 3–5, проверьте работу (/check), затем расширяйте.
+# niche — для контекста анализа: "туризм", "отель", "цветы", "кафе" и т.д.
+# source — необязательно: graph | apify. По умолчанию — DEFAULT_SOURCE из .env.
+#   graph: бесплатно, только бизнес/автор-аккаунты.
+#   apify: платно, работает и для аккаунтов, недоступных через Graph API.
+accounts:
+  - username: example_travel_agency
+    niche: туризм
+  - username: example_flower_shop
+    niche: цветочный магазин
+  - username: example_hotel
+    niche: отель
