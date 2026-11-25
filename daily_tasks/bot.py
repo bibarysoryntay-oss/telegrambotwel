@@ -6,7 +6,7 @@ import logging
 from datetime import date, datetime, time as dtime, timedelta
 from zoneinfo import ZoneInfo
 
-from telegram import Update
+from telegram import BotCommand, Update
 from telegram.constants import ParseMode
 from telegram.error import BadRequest
 from telegram.ext import (
@@ -45,6 +45,26 @@ HELP = """<b>📝 Ежедневные задачи</b>
 /stats — статистика за неделю
 /reminders — включить/выключить напоминания
 /help — эта справка"""
+
+
+COMMANDS = [
+    ("today", "Задачи на сегодня"),
+    ("tomorrow", "Добавить задачу на завтра"),
+    ("done", "Отметить выполненной (номер)"),
+    ("del", "Удалить задачу (номер)"),
+    ("clear", "Убрать выполненные"),
+    ("stats", "Статистика за неделю"),
+    ("reminders", "Вкл/выкл напоминания"),
+    ("help", "Справка"),
+]
+
+
+async def _set_commands(app: Application) -> None:
+    """Заполняет меню команд бота, чтобы не добавлять их вручную в BotFather."""
+    try:
+        await app.bot.set_my_commands([BotCommand(c, d) for c, d in COMMANDS])
+    except Exception:
+        log.exception("Не удалось установить меню команд")
 
 
 def _parse_time(value: str) -> dtime:
@@ -269,7 +289,7 @@ class TasksBot:
 
     # --- сборка ---
     def build(self) -> Application:
-        app = Application.builder().token(self.s.token).build()
+        app = Application.builder().token(self.s.token).post_init(_set_commands).build()
         for name, fn in [
             ("start", self.cmd_start), ("help", self.cmd_help), ("today", self.cmd_today),
             ("tomorrow", self.cmd_tomorrow), ("done", self.cmd_done), ("del", self.cmd_del),
