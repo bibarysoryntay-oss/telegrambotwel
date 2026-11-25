@@ -120,3 +120,16 @@ pip install -r requirements-dev.txt && pytest
 4. Чтобы бот отвечал только вам: напишите ему что-нибудь, узнайте ID чата (например, через @userinfobot) и впишите его в `TASKS_ALLOWED_CHAT_IDS`.
 
 Задачи хранятся в SQLite (`data/tasks.db`). Бот работает, пока запущен процесс, поэтому для напоминаний его нужно держать на сервере или постоянно включённом компьютере.
+
+## Бот задач на сервере (Railway)
+
+`railway.json` уже настроен: сервер запускает `python -m daily_tasks` и перезапускает бота, если тот упадёт.
+
+1. [railway.com](https://railway.com) → войти через GitHub → **New Project** → **Deploy from GitHub repo** → `telegrambotwel`.
+2. В сервисе: **Settings → Source → Branch** — выбрать ветку с ботом (если код ещё не в `main`).
+3. **Variables** → добавить:
+   - `TASKS_BOT_TOKEN` — токен от BotFather
+   - `TASKS_DB_PATH` = `/data/tasks.db`
+   - `TASKS_TIMEZONE` = `Asia/Almaty`
+4. Правой кнопкой по сервису → **Attach Volume** → путь `/data` (без этого задачи стираются при каждом обновлении).
+5. Остановить бота на своём компьютере (Control + C): один токен нельзя запускать в двух местах одновременно.
