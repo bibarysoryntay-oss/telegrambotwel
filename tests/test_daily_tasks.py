@@ -116,3 +116,29 @@ def test_formatting():
     assert kb.inline_keyboard[0][0].callback_data == f"tg:{items[0].id}"
     assert kb.inline_keyboard[-1][0].web_app.url == "https://example.com/"
     assert progress_bar(0, 0) == ""
+
+
+def test_voice_fallback_without_claude(monkeypatch):
+    import asyncio
+
+    from daily_tasks import voice as V
+
+    monkeypatch.delenv("ANTHROPIC_API_KEY", raising=False)
+    items = asyncio.run(V.extract_tasks("купить хлеб; позвонить маме", TODAY))
+    assert items == [("купить хлеб", TODAY), ("позвонить маме", TODAY)]
+    assert V._clamp("2026-11-20", TODAY) == TODAY and V._clamp("мусор", TODAY) == TODAY
+    assert V._clamp("2026-11-27", TODAY) == date(2026, 11, 27)
+
+
+def test_stt_config(monkeypatch):
+    from daily_tasks import voice as V
+
+    for k in ("OPENAI_API_KEY", "GROQ_API_KEY", "TASKS_STT_PROVIDER", "TASKS_STT_MODEL"):
+        monkeypatch.delenv(k, raising=False)
+    assert V.stt_config() is None
+    monkeypatch.setenv("OPENAI_API_KEY", "sk-x")
+    assert V.stt_config().provider == "openai"
+    monkeypatch.setenv("GROQ_API_KEY", "gsk-x")
+    assert V.stt_config().provider == "groq"
+    monkeypatch.setenv("TASKS_STT_PROVIDER", "openai")
+    assert V.stt_config().provider == "openai"

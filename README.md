@@ -112,6 +112,11 @@ pip install -r requirements-dev.txt && pytest
 - Невыполненные задачи остаются в списке, пока их не отметите (↪️ — перенесено с прошлых дней).
 - Если одновременно что-то поменять в приложении и в боте, изменения объединяются.
 
+**Голосовые задачи** 🎙
+- Отправьте боту голосовое: «завтра позвонить маме и купить хлеб» — получится две задачи на завтра. Под ответом есть «↩️ Отменить».
+- Речь в текст: нужен ключ **одного** сервиса — `OPENAI_API_KEY` (модель `gpt-4o-mini-transcribe`) или `GROQ_API_KEY` (`whisper-large-v3-turbo`). Оба понимают русский и казахский. Claude аудио не распознаёт, поэтому для этого шага нужен отдельный сервис.
+- Разбор на задачи и даты: если задан `ANTHROPIC_API_KEY`, это делает Claude (`claude-opus-5-5`, можно сменить через `TASKS_CLAUDE_MODEL`). Без него фраза делится только по строкам и «;», всё ставится на сегодня.
+
 **Команды:** `/today` · `/app` · `/tomorrow текст` · `/done номер` · `/del номер` · `/stats` · `/reminders` · `/help`
 
 **Как устроено**
@@ -125,7 +130,7 @@ pip install -r requirements-dev.txt && pytest
 
 1. [railway.com](https://railway.com) → **New Project** → **Deploy from GitHub repo** → `telegrambotwel`.
 2. Сервис → **Settings → Source → Branch** — ветка с ботом.
-3. **Variables:** `TASKS_BOT_TOKEN` (токен от BotFather), `TASKS_DB_PATH` = `/data/tasks.db`.
+3. **Variables:** `TASKS_BOT_TOKEN` (токен от BotFather), `TASKS_DB_PATH` = `/data/tasks.db`. Для голосовых — `OPENAI_API_KEY` или `GROQ_API_KEY`, и по желанию `ANTHROPIC_API_KEY`.
 4. Правой кнопкой по сервису → **Attach Volume** → `/data` (иначе данные стираются при обновлении).
 5. **Settings → Networking → Generate Domain** — публичный адрес для приложения. Railway сам передаёт его боту (`RAILWAY_PUBLIC_DOMAIN`), после перезапуска в боте появится кнопка «Задачи».
 6. Остановить бота на своём компьютере: один токен нельзя запускать в двух местах.

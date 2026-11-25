@@ -7,11 +7,14 @@
 from __future__ import annotations
 
 import logging
+import os
+import secrets
 from datetime import date, datetime, time as dtime, timedelta
+from html import escape
 from zoneinfo import ZoneInfo
 
 from aiohttp import web
-from telegram import BotCommand, MenuButtonWebApp, Update, WebAppInfo
+from telegram import BotCommand, InlineKeyboardButton, InlineKeyboardMarkup, MenuButtonWebApp, Update, WebAppInfo
 from telegram.constants import ParseMode
 from telegram.error import BadRequest
 from telegram.ext import (
@@ -25,7 +28,8 @@ from telegram.ext import (
 
 from . import tasks as T
 from .config import Settings
-from .formatting import evening_text, parse_tasks, stats_text, task_list_keyboard, task_list_text
+from .formatting import evening_text, human_date, parse_tasks, stats_text, task_list_keyboard, task_list_text
+from . import voice as V
 from .store import Store
 from .web import make_app
 
@@ -34,7 +38,7 @@ log = logging.getLogger(__name__)
 HELP = """<b>📝 Ежедневные задачи</b>
 
 Просто напишите задачу сообщением — она добавится на сегодня. Несколько строк = несколько задач.
-Под списком нажимайте на задачу, чтобы отметить ✅ выполненной (или снять отметку).
+{voice_line}Под списком нажимайте на задачу, чтобы отметить ✅ выполненной (или снять отметку).
 {app_line}
 Каждое утро в {morning} присылаю список на день, вечером в {evening} — итоги. Невыполненные задачи остаются в списке, пока их не отметите (помечены ↪️).
 
@@ -117,7 +121,13 @@ class TasksBot:
             "\n📱 Полное приложение (календарь, привычки, питание) — кнопка «Задачи» рядом с полем ввода или /app.\n"
             if self.s.webapp_url else ""
         )
-        return HELP.format(morning=self.s.morning_time, evening=self.s.evening_time, app_line=app_line)
+        voice_line = (
+            "🎙 Можно и голосом: «завтра позвонить маме и купить хлеб» — станет двумя задачами на завтра.\n"
+            if V.stt_config() else ""
+        )
+        return HELP.format(
+            morning=self.s.morning_time, evening=self.s.evening_time, app_line=app_line, voice_line=voice_line
+        )
 
     # --- команды ---
     async def cmd_start(self, update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
@@ -139,8 +149,6 @@ class TasksBot:
                 "Приложение ещё не подключено: на сервере нужен публичный адрес (Railway → Settings → Networking → Generate Domain)."
             )
             return
-        from telegram import InlineKeyboardButton, InlineKeyboardMarkup
-
         await update.effective_message.reply_text(
             "Календарь, привычки, питание и все задачи — в приложении:",
             reply_markup=InlineKeyboardMarkup(
@@ -234,6 +242,55 @@ class TasksBot:
         word = "Задача добавлена" if len(texts) == 1 else f"Добавлено задач: {len(texts)}"
         await self.send_list(update, chat_id, prefix=f"➕ {word}")
 
+    # --- голосовые ---
+    async def on_voice(self, update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+        if (chat_id := await self.guard(update)) is None:
+            return
+        msg = update.effective_message
+        cfg = V.stt_config()
+        if not cfg:
+            await msg.reply_text(
+                "Голосовые пока не подключены: на сервере нужен ключ для распознавания речи "
+                "(OPENAI_API_KEY или GROQ_API_KEY)."
+            )
+            return
+        media = msg.voice or msg.audio
+        if media.duration and media.duration > 300:
+            await msg.reply_text("Голосовое длиннее 5 минут — разбейте, пожалуйста, на части.")
+            return
+        await context.bot.send_chat_action(chat_id, "typing")
+        try:
+            file = await media.get_file()
+            audio = bytes(await file.download_as_bytearray())
+            text = await V.transcribe(audio, "voice.ogg", cfg)
+        except V.TranscriptionError as e:
+            await msg.reply_text(f"Не получилось распознать голосовое: {e}. Попробуйте ещё раз или напишите текстом.")
+            return
+        except Exception:
+            log.exception("Ошибка при обработке голосового")
+            await msg.reply_text("Не получилось обработать голосовое. Попробуйте ещё раз или напишите текстом.")
+            return
+        items = await V.extract_tasks(text, self.today())
+        quote = text if len(text) <= 500 else text[:500] + "…"
+        if not items:
+            await msg.reply_text(f"🎙 «{quote}»\n\nЗадач в сообщении не нашёл.")
+            return
+        with self.store.edit(chat_id) as state:
+            ids = T.add_items(state, items)
+        token = secrets.token_urlsafe(6)
+        context.bot_data.setdefault("undo", {})[token] = (chat_id, ids)
+        later = [(t, d) for t, d in items if d > self.today()]
+        lines = [f"🎙 «{escape(quote)}»", "", f"➕ Добавлено задач: {len(items)}"]
+        lines += [f"📅 {escape(t)} — {escape(human_date(d))}" for t, d in later]
+        text_list, kb, _ = self.render_today(chat_id)
+        rows = [[InlineKeyboardButton("↩️ Отменить", callback_data=f"undo:{token}")]]
+        rows += list(kb.inline_keyboard) if kb else []
+        await msg.reply_text(
+            "\n".join(lines) + "\n\n" + text_list,
+            parse_mode=ParseMode.HTML,
+            reply_markup=InlineKeyboardMarkup(rows),
+        )
+
     # --- кнопки ---
     async def on_button(self, update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         q = update.callback_query
@@ -253,6 +310,15 @@ class TasksBot:
                     mode, note = "edit", "Перенесено на завтра"
         elif action == "mode":
             mode = arg
+        elif action == "undo":
+            saved = context.bot_data.get("undo", {}).pop(arg, None)
+            if saved and saved[0] == chat_id:
+                with self.store.edit(chat_id) as state:
+                    for task_id in saved[1]:
+                        T.delete(state, task_id)
+                note = "Отменено"
+            else:
+                note = "Уже нельзя отменить"
         await q.answer(note)
         text, kb, _ = self.render_today(chat_id, mode)
         try:
@@ -308,6 +374,12 @@ class TasksBot:
         await web.TCPSite(runner, "0.0.0.0", self.s.web_port).start()
         self.web_runner = runner
         log.warning("Веб-приложение слушает порт %s", self.s.web_port)
+        stt = V.stt_config()
+        log.warning(
+            "Голосовые: %s; разбор задач Claude: %s",
+            f"{stt.provider} ({stt.model})" if stt else "выключены (нет OPENAI_API_KEY / GROQ_API_KEY)",
+            "включён" if os.environ.get("ANTHROPIC_API_KEY") else "выключен",
+        )
         if self.s.webapp_url:
             try:
                 await app.bot.set_chat_menu_button(
@@ -336,6 +408,7 @@ class TasksBot:
             app.add_handler(CommandHandler(name, fn))
         app.add_handler(CallbackQueryHandler(self.on_button))
         app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, self.on_text))
+        app.add_handler(MessageHandler(filters.VOICE | filters.AUDIO, self.on_voice))
         app.job_queue.run_daily(self.job_morning, _parse_time(self.s.morning_time).replace(tzinfo=self.tz))
         app.job_queue.run_daily(self.job_evening, _parse_time(self.s.evening_time).replace(tzinfo=self.tz))
         return app

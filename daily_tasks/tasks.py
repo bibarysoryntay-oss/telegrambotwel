@@ -57,18 +57,26 @@ def day_tasks(state: dict[str, Any], day: date) -> list[Task]:
     return [Task(x["id"], x["text"], False, False) for x in items]
 
 
-def add(state: dict[str, Any], texts: list[str], day: date) -> int:
+def add(state: dict[str, Any], texts: list[str], day: date) -> list[str]:
+    return add_items(state, [(t, day) for t in texts])
+
+
+def add_items(state: dict[str, Any], items: list[tuple[str, date]]) -> list[str]:
+    """Добавляет задачи [(текст, дата)] и возвращает их id."""
     now = int(time.time() * 1000)
-    for i, text in enumerate(texts):
+    ids = []
+    for i, (text, day) in enumerate(items):
+        task_id = uid() + str(i)
         state["tasks"].append({
-            "id": uid() + str(i),
+            "id": task_id,
             "text": text[:300],
             "date": day.isoformat(),
             "done": False,
             "doneDay": None,
             "created": now + i,
         })
-    return len(texts)
+        ids.append(task_id)
+    return ids
 
 
 def set_done(state: dict[str, Any], task_id: str, done: bool, today: date) -> bool:
