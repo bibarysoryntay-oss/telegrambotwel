@@ -113,7 +113,7 @@ def make_app(
         items = await V.extract_tasks(text, today())
         if items:
             with store.edit(user_id) as state:
-                T.add_items(state, items)
+                T.add_items(state, [(t, d) for t, d, _ in items], [m for _, _, m in items])
         raw, version = store.get_raw(user_id)
         return web.json_response({"text": text, "added": len(items), "data": raw, "version": version})
 

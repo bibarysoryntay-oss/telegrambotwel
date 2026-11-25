@@ -125,7 +125,11 @@ def test_voice_fallback_without_claude(monkeypatch):
 
     monkeypatch.delenv("ANTHROPIC_API_KEY", raising=False)
     items = asyncio.run(V.extract_tasks("купить хлеб; позвонить маме", TODAY))
-    assert items == [("купить хлеб", TODAY), ("позвонить маме", TODAY)]
+    assert items == [("Купить хлеб", TODAY, False), ("Позвонить маме", TODAY, False)]
+    assert V.simple_items("Каждый месяц 5-го оплатить интернет", TODAY) == [
+        ("Оплатить интернет", date(2026, 12, 5), True)
+    ]
+    assert V.simple_items("ай сайын пәтерақы төлеу", TODAY) == [("Пәтерақы төлеу", TODAY, True)]
     assert V._clamp("2026-11-20", TODAY) == TODAY and V._clamp("мусор", TODAY) == TODAY
     assert V._clamp("2026-11-27", TODAY) == date(2026, 11, 27)
 
@@ -142,3 +146,19 @@ def test_stt_config(monkeypatch):
     assert V.stt_config().provider == "groq"
     monkeypatch.setenv("TASKS_STT_PROVIDER", "openai")
     assert V.stt_config().provider == "openai"
+
+
+def test_monthly_task_comes_back_next_month():
+    state = {"tasks": []}
+    (tid,) = T.add_items(state, [("Оплатить интернет", date(2026, 1, 31))], [True])
+    T.set_done(state, tid, True, date(2026, 1, 31))
+    nxt = state["tasks"][1]
+    assert nxt["date"] == "2026-02-28" and nxt["repeat"] == "monthly" and nxt["repeatDay"] == 31
+    T.set_done(state, tid, True, date(2026, 1, 31))  # повторная отметка не плодит копии
+    assert len(state["tasks"]) == 2
+    T.set_done(state, nxt["id"], True, date(2026, 2, 28))
+    assert state["tasks"][2]["date"] == "2026-03-31"  # снова 31-е, а не 28-е
+    T.set_done(state, nxt["id"], False, date(2026, 2, 28))  # сняли отметку — мартовская убрана
+    assert [t["date"] for t in state["tasks"]] == ["2026-01-31", "2026-02-28"]
+    assert T.next_monthly(date(2026, 12, 5), 5) == date(2027, 1, 5)
+    assert T.day_tasks(state, date(2026, 2, 28))[0].monthly

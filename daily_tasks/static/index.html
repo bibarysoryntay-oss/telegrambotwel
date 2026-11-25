@@ -1166,6 +1166,10 @@
             <input type="checkbox" id="new-daily" />
             <span>Привычка — каждый день</span>
           </label>
+          <label class="repeat">
+            <input type="checkbox" id="new-monthly" />
+            <span>Каждый месяц — в это же число</span>
+          </label>
         </form>
 
         <div class="section">
@@ -1385,6 +1389,47 @@
       }
 
       // ---------- Хранение и перенос старых данных ----------
+      // ---------- Ежемесячные задачи ----------
+      // Задача с repeat: 'monthly' после выполнения появляется снова в то же
+      // число следующего месяца (31-е в коротком месяце — последний день).
+      function nextMonthly(d, day) {
+        var p = parse(d);
+        var y = p.getFullYear();
+        var m = p.getMonth() + 1;
+        var last = new Date(y, m + 1, 0).getDate();
+        return iso(new Date(y, m, Math.min(day, last)));
+      }
+      function setTaskDone(t, done) {
+        t.done = done;
+        t.doneDay = done ? today() : null;
+        if (t.repeat !== 'monthly') return;
+        var day = t.repeatDay || parse(t.date).getDate();
+        if (done && !t.nextId) {
+          var next = {
+            id: uid(),
+            text: t.text,
+            date: nextMonthly(t.date, day),
+            done: false,
+            doneDay: null,
+            created: Date.now(),
+            repeat: 'monthly',
+            repeatDay: day,
+          };
+          state.tasks.push(next);
+          t.nextId = next.id;
+        } else if (!done && t.nextId) {
+          // Отметку сняли — убираем созданное повторение, если его не трогали.
+          var n = state.tasks.find((x) => x.id === t.nextId);
+          if (n && !n.done) state.tasks = state.tasks.filter((x) => x !== n);
+          delete t.nextId;
+        }
+      }
+      function repeatLabel(t) {
+        return t.repeat === 'monthly'
+          ? '🔁 каждый месяц, ' + (t.repeatDay || parse(t.date).getDate()) + '-го'
+          : '';
+      }
+
       function uid() {
         return Date.now().toString(36) + Math.random().toString(36).slice(2, 7);
       }
@@ -1879,8 +1924,7 @@
         cb.checked = t.done;
         cb.setAttribute('aria-label', 'Сделано: ' + t.text);
         cb.addEventListener('change', function () {
-          t.done = cb.checked;
-          t.doneDay = t.done ? today() : null;
+          setTaskDone(t, cb.checked);
           save();
           setTimeout(renderAll, 220);
         });
@@ -1894,10 +1938,11 @@
           startEdit(text, t);
         });
         body.appendChild(text);
-        if (opts.meta) {
+        var metaText = [opts.meta, repeatLabel(t)].filter(Boolean).join(' · ');
+        if (metaText) {
           var meta = document.createElement('div');
           meta.className = 'meta' + (opts.late ? ' late' : '');
-          meta.textContent = opts.meta;
+          meta.textContent = metaText;
           body.appendChild(meta);
         }
         li.appendChild(cb);
@@ -2895,20 +2940,35 @@
           return;
         }
         var d = dateInput.value && dateInput.value > today() ? dateInput.value : today();
-        state.tasks.push({
+        var monthlyBox = document.getElementById('new-monthly');
+        var task = {
           id: uid(),
           text: text.slice(0, 300),
           date: d,
           done: false,
           doneDay: null,
           created: Date.now(),
-        });
+        };
+        if (monthlyBox.checked) {
+          task.repeat = 'monthly';
+          task.repeatDay = parse(d).getDate();
+        }
+        state.tasks.push(task);
         save();
         input.value = '';
         dateInput.value = today();
         renderAll();
-        if (d !== today()) showToast('Добавлено на ' + relative(d).toLowerCase());
+        if (monthlyBox.checked) {
+          monthlyBox.checked = false;
+          showToast('Каждый месяц, ' + task.repeatDay + '-го. Ближайшая — ' + relative(d).toLowerCase());
+        } else if (d !== today()) showToast('Добавлено на ' + relative(d).toLowerCase());
         input.focus();
+      });
+
+      ['new-daily', 'new-monthly'].forEach(function (id, i, ids) {
+        document.getElementById(id).addEventListener('change', function (e) {
+          if (e.target.checked) document.getElementById(ids[1 - i]).checked = false;
+        });
       });
 
       document.querySelectorAll('[data-tab]').forEach(function (b) {

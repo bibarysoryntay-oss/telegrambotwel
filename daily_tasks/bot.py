@@ -40,6 +40,8 @@ HELP = """<b>📝 Ежедневные задачи</b>
 Просто напишите задачу сообщением — она добавится на сегодня. Несколько строк = несколько задач.
 {voice_line}Под списком нажимайте на задачу, чтобы отметить ✅ выполненной (или снять отметку).
 {app_line}
+🔁 Ежемесячные задачи: в приложении галочка «Каждый месяц» или голосом «каждый месяц 5-го оплатить интернет». После отметки задача появится снова в то же число следующего месяца.
+
 Каждое утро в {morning} присылаю список на день, вечером в {evening} — итоги. Невыполненные задачи остаются в списке, пока их не отметите (помечены ↪️).
 
 /today — задачи на сегодня
@@ -276,12 +278,15 @@ class TasksBot:
             await msg.reply_text(f"🎙 «{quote}»\n\nЗадач в сообщении не нашёл.")
             return
         with self.store.edit(chat_id) as state:
-            ids = T.add_items(state, items)
+            ids = T.add_items(state, [(t, d) for t, d, _ in items], [m for _, _, m in items])
         token = secrets.token_urlsafe(6)
         context.bot_data.setdefault("undo", {})[token] = (chat_id, ids)
-        later = [(t, d) for t, d in items if d > self.today()]
         lines = [f"🎙 «{escape(quote)}»", "", f"➕ Добавлено задач: {len(items)}"]
-        lines += [f"📅 {escape(t)} — {escape(human_date(d))}" for t, d in later]
+        for t, d, monthly in items:
+            if monthly:
+                lines.append(f"🔁 {escape(t)} — каждый месяц, {d.day}-го")
+            elif d > self.today():
+                lines.append(f"📅 {escape(t)} — {escape(human_date(d))}")
         text_list, kb, _ = self.render_today(chat_id)
         rows = [[InlineKeyboardButton("↩️ Отменить", callback_data=f"undo:{token}")]]
         rows += list(kb.inline_keyboard) if kb else []

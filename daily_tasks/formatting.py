@@ -59,7 +59,8 @@ def task_list_text(
         mark = "✅" if t.done else "⬜"
         text = f"<s>{escape(t.text)}</s>" if t.done else escape(t.text)
         moved = " ↪️" if t.moved and not t.done else ""
-        lines.append(f"{mark} {i}. {text}{moved}")
+        repeat = " 🔁" if t.monthly else ""
+        lines.append(f"{mark} {i}. {text}{repeat}{moved}")
     done = sum(t.done for t in tasks)
     lines += ["", progress_bar(done, len(tasks))]
     if done == len(tasks):

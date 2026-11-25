@@ -6,6 +6,7 @@
 
 from __future__ import annotations
 
+import calendar
 import random
 import string
 import time
@@ -20,6 +21,7 @@ class Task:
     text: str
     done: bool
     moved: bool  # перенесена с прошлых дней
+    monthly: bool = False  # повторяется каждый месяц
 
 
 def uid() -> str:
@@ -44,7 +46,8 @@ def today_tasks(state: dict[str, Any], today: date) -> list[Task]:
         key=lambda x: (x.get("date", t), x.get("created", 0)),
     )
     done = [x for x in state["tasks"] if x.get("done") and x.get("doneDay") == t]
-    return [Task(x["id"], x["text"], bool(x.get("done")), x.get("date", t) < t) for x in open_ + done]
+    return [Task(x["id"], x["text"], bool(x.get("done")), x.get("date", t) < t, x.get("repeat") == "monthly")
+            for x in open_ + done]
 
 
 def day_tasks(state: dict[str, Any], day: date) -> list[Task]:
@@ -54,29 +57,39 @@ def day_tasks(state: dict[str, Any], day: date) -> list[Task]:
         (x for x in state["tasks"] if not x.get("done") and x.get("date") == d),
         key=lambda x: x.get("created", 0),
     )
-    return [Task(x["id"], x["text"], False, False) for x in items]
+    return [Task(x["id"], x["text"], False, False, x.get("repeat") == "monthly") for x in items]
 
 
 def add(state: dict[str, Any], texts: list[str], day: date) -> list[str]:
     return add_items(state, [(t, day) for t in texts])
 
 
-def add_items(state: dict[str, Any], items: list[tuple[str, date]]) -> list[str]:
-    """Добавляет задачи [(текст, дата)] и возвращает их id."""
+def add_items(state: dict[str, Any], items: list[tuple[str, date]], monthly: list[bool] | None = None) -> list[str]:
+    """Добавляет задачи [(текст, дата)] и возвращает их id. monthly[i] — повторять каждый месяц."""
     now = int(time.time() * 1000)
     ids = []
     for i, (text, day) in enumerate(items):
         task_id = uid() + str(i)
-        state["tasks"].append({
+        task = {
             "id": task_id,
             "text": text[:300],
             "date": day.isoformat(),
             "done": False,
             "doneDay": None,
             "created": now + i,
-        })
+        }
+        if monthly and monthly[i]:
+            task["repeat"] = "monthly"
+            task["repeatDay"] = day.day
+        state["tasks"].append(task)
         ids.append(task_id)
     return ids
+
+
+def next_monthly(d: date, day: int) -> date:
+    """То же число в следующем месяце (31-е в коротком месяце — последний день)."""
+    y, m = (d.year + 1, 1) if d.month == 12 else (d.year, d.month + 1)
+    return date(y, m, min(day, calendar.monthrange(y, m)[1]))
 
 
 def set_done(state: dict[str, Any], task_id: str, done: bool, today: date) -> bool:
@@ -85,6 +98,17 @@ def set_done(state: dict[str, Any], task_id: str, done: bool, today: date) -> bo
         return False
     t["done"] = done
     t["doneDay"] = today.isoformat() if done else None
+    if t.get("repeat") == "monthly":  # те же правила, что в приложении
+        day = t.get("repeatDay") or date.fromisoformat(t["date"]).day
+        if done and not t.get("nextId"):
+            nxt = next_monthly(date.fromisoformat(t["date"]), day)
+            (new_id,) = add_items(state, [(t["text"], nxt)], [True])
+            _find(state, new_id)["repeatDay"] = day
+            t["nextId"] = new_id
+        elif not done and t.get("nextId"):
+            n = _find(state, t.pop("nextId"))
+            if n and not n.get("done"):
+                delete(state, n["id"])
     return True
 
 
