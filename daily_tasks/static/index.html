@@ -1,0 +1,2939 @@
+<!doctype html>
+<html lang="ru">
+  <head>
+    <meta charset="utf-8" />
+    <script src="https://telegram.org/js/telegram-web-app.js"></script>
+    <meta
+      name="viewport"
+      content="width=device-width, initial-scale=1, viewport-fit=cover"
+    />
+    <meta name="robots" content="noindex, nofollow" />
+    <title>Мои задачи</title>
+    <meta name="theme-color" content="#f4f1ec" />
+    <meta name="color-scheme" content="light only" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Onest:wght@400;500;600;700&display=swap"
+      rel="stylesheet"
+    />
+    <style>
+      :root {
+        /* Всегда светлая тема, даже если в телефоне включена тёмная. */
+        --bg: #f4f1ec;
+        --surface: #ffffff;
+        --ink: #1e2126;
+        --muted: #6f6a63;
+        --line: #e4ded5;
+        --accent: #2f5d50;
+        --accent-ink: #ffffff;
+        --ring: #e5264f;
+        --ring-track: rgba(229, 38, 79, 0.14);
+        --danger: #b23a2b;
+        --late: #b23a2b;
+        --soon: #a8661b;
+        --soon-bg: #fbf0e1;
+        color-scheme: light;
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+      body {
+        margin: 0;
+        background: var(--bg);
+        color: var(--ink);
+        font-family:
+          'Onest',
+          system-ui,
+          -apple-system,
+          'Segoe UI',
+          Roboto,
+          sans-serif;
+        font-size: 16px;
+        line-height: 1.45;
+        -webkit-font-smoothing: antialiased;
+      }
+      .app {
+        max-width: 640px;
+        margin: 0 auto;
+        padding: calc(24px + env(safe-area-inset-top)) 16px
+          calc(48px + env(safe-area-inset-bottom));
+      }
+      [hidden] {
+        display: none !important;
+      }
+      :focus-visible {
+        outline: 2px solid var(--accent);
+        outline-offset: 2px;
+      }
+
+      /* ---------- Шапка ---------- */
+      header {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 16px;
+        margin-bottom: 16px;
+      }
+      .date {
+        color: var(--muted);
+        font-size: 14px;
+      }
+      h1 {
+        margin: 0;
+        font-size: 28px;
+        font-weight: 700;
+        letter-spacing: -0.02em;
+      }
+      .today-ring {
+        position: relative;
+        flex: none;
+        width: 76px;
+        height: 76px;
+      }
+      .today-ring b {
+        position: absolute;
+        inset: 0;
+        display: grid;
+        place-items: center;
+        font-size: 17px;
+        font-variant-numeric: tabular-nums;
+      }
+      .today-sub {
+        font-size: 14px;
+        color: var(--muted);
+        margin-top: 2px;
+        font-variant-numeric: tabular-nums;
+      }
+
+      /* ---------- Вкладки ---------- */
+      .tabs {
+        display: grid;
+        grid-template-columns: repeat(3, 1fr);
+        gap: 4px;
+        background: var(--line);
+        border-radius: 12px;
+        padding: 4px;
+        margin-bottom: 16px;
+      }
+      .tabs button {
+        border: 0;
+        background: transparent;
+        color: var(--muted);
+        font: inherit;
+        font-size: 14px;
+        font-weight: 600;
+        border-radius: 9px;
+        padding: 8px 4px;
+        cursor: pointer;
+        font-variant-numeric: tabular-nums;
+      }
+      .tabs button[aria-selected='true'] {
+        background: var(--surface);
+        color: var(--ink);
+        box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
+      }
+
+      /* ---------- Добавление ---------- */
+      form.add {
+        display: grid;
+        grid-template-columns: 1fr auto auto;
+        gap: 8px;
+        background: var(--surface);
+        border: 1px solid var(--line);
+        border-radius: 16px;
+        padding: 8px;
+        margin-bottom: 18px;
+      }
+      form.add input[type='text'] {
+        min-width: 0;
+        border: 0;
+        background: transparent;
+        color: var(--ink);
+        font: inherit;
+        font-size: 17px;
+        padding: 10px 8px;
+        outline: none;
+      }
+      form.add input[type='date'] {
+        border: 1px solid var(--line);
+        background: var(--bg);
+        color: var(--ink);
+        font: inherit;
+        font-size: 14px;
+        border-radius: 10px;
+        padding: 0 8px;
+        width: 140px;
+      }
+      .repeat {
+        grid-column: 1 / -1;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        padding: 2px 8px 4px;
+        font-size: 14px;
+        color: var(--muted);
+        cursor: pointer;
+        user-select: none;
+      }
+      .repeat input {
+        width: 18px;
+        height: 18px;
+        margin: 0;
+        accent-color: var(--ring);
+      }
+      .daily-tag {
+        display: inline-flex;
+        align-items: center;
+        gap: 4px;
+        color: var(--muted);
+      }
+      .btn {
+        border: 0;
+        border-radius: 10px;
+        background: var(--accent);
+        color: var(--accent-ink);
+        font: inherit;
+        font-weight: 600;
+        padding: 0 16px;
+        cursor: pointer;
+        min-height: 44px;
+      }
+      @media (max-width: 479px) {
+        form.add {
+          grid-template-columns: 1fr auto;
+        }
+        form.add input[type='text'] {
+          grid-column: 1 / -1;
+        }
+        form.add input[type='date'] {
+          width: 100%;
+          min-height: 44px;
+        }
+      }
+
+      /* ---------- Разделы и задачи ---------- */
+      .section {
+        margin-bottom: 20px;
+      }
+      .section h2 {
+        margin: 0 0 8px;
+        font-size: 13px;
+        font-weight: 600;
+        letter-spacing: 0.06em;
+        text-transform: uppercase;
+        color: var(--muted);
+        display: flex;
+        justify-content: space-between;
+        gap: 8px;
+      }
+      .card {
+        background: var(--surface);
+        border: 1px solid var(--line);
+        border-radius: 16px;
+        overflow: hidden;
+      }
+      .card.soon {
+        background: var(--soon-bg);
+        border-color: transparent;
+      }
+      .card.soon .lead {
+        padding: 12px 14px 0;
+        font-size: 14px;
+        font-weight: 600;
+        color: var(--soon);
+      }
+      ul.tasks {
+        list-style: none;
+        margin: 0;
+        padding: 0;
+      }
+      .task {
+        display: grid;
+        grid-template-columns: auto 1fr auto auto;
+        align-items: center;
+        gap: 10px;
+        padding: 11px 8px 11px 14px;
+        border-top: 1px solid var(--line);
+      }
+      .task:first-child {
+        border-top: 0;
+      }
+      .card.soon .task {
+        border-top-color: rgba(168, 102, 27, 0.18);
+      }
+      .check {
+        appearance: none;
+        width: 24px;
+        height: 24px;
+        margin: 0;
+        border: 2px solid var(--muted);
+        border-radius: 50%;
+        cursor: pointer;
+        display: grid;
+        place-items: center;
+        transition:
+          background 0.15s ease,
+          border-color 0.15s ease;
+      }
+      .check:checked {
+        background: var(--ring);
+        border-color: var(--ring);
+      }
+      .check:checked::after {
+        content: '';
+        width: 6px;
+        height: 11px;
+        border: solid #fff;
+        border-width: 0 2.5px 2.5px 0;
+        transform: translateY(-1px) rotate(45deg);
+      }
+      .body {
+        min-width: 0;
+      }
+      .text {
+        overflow-wrap: anywhere;
+        cursor: text;
+        outline: none;
+        border-radius: 6px;
+      }
+      .text[contenteditable='true'] {
+        box-shadow: 0 0 0 2px var(--accent);
+        padding: 2px 4px;
+        margin: -2px -4px;
+      }
+      .task.done .text {
+        color: var(--muted);
+        text-decoration: line-through;
+      }
+      .meta {
+        font-size: 13px;
+        color: var(--muted);
+        margin-top: 2px;
+      }
+      .meta.late {
+        color: var(--late);
+        font-weight: 600;
+      }
+      .icon-btn {
+        position: relative;
+        border: 0;
+        background: transparent;
+        color: var(--muted);
+        width: 36px;
+        height: 36px;
+        border-radius: 10px;
+        cursor: pointer;
+        display: grid;
+        place-items: center;
+        font-size: 20px;
+        line-height: 1;
+      }
+      .icon-btn:hover {
+        background: var(--bg);
+        color: var(--ink);
+      }
+      .icon-btn.del:hover {
+        color: var(--danger);
+      }
+      .icon-btn svg {
+        width: 19px;
+        height: 19px;
+      }
+      /* Невидимое поле даты поверх значка: на телефоне открывает родной календарь. */
+      .icon-btn input[type='date'] {
+        position: absolute;
+        inset: 0;
+        width: 100%;
+        height: 100%;
+        opacity: 0;
+        cursor: pointer;
+        border: 0;
+        padding: 0;
+      }
+      .empty {
+        padding: 22px 16px;
+        text-align: center;
+        color: var(--muted);
+        font-size: 15px;
+      }
+
+      /* ---------- Календарь ---------- */
+      .month {
+        margin-bottom: 26px;
+      }
+      .month h3 {
+        margin: 0 0 10px;
+        font-size: 22px;
+        font-weight: 700;
+        text-align: center;
+      }
+      .grid7 {
+        display: grid;
+        grid-template-columns: repeat(7, 1fr);
+        gap: 6px 2px;
+      }
+      .wd {
+        text-align: center;
+        font-size: 12px;
+        font-weight: 600;
+        color: var(--muted);
+        margin-bottom: 4px;
+      }
+      .day {
+        border: 0;
+        background: transparent;
+        color: var(--ink);
+        font: inherit;
+        padding: 2px 0 4px;
+        border-radius: 12px;
+        cursor: pointer;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 2px;
+      }
+      .day .num {
+        font-size: 15px;
+        width: 28px;
+        height: 28px;
+        display: grid;
+        place-items: center;
+        border-radius: 50%;
+        font-variant-numeric: tabular-nums;
+      }
+      .day.today .num {
+        background: var(--ring);
+        color: #fff;
+        font-weight: 700;
+      }
+      .day.sel {
+        background: var(--surface);
+        box-shadow: inset 0 0 0 1px var(--line);
+      }
+      .day svg {
+        width: 100%;
+        max-width: 44px;
+        height: auto;
+      }
+      .detail {
+        margin-bottom: 22px;
+        scroll-margin-top: 12px;
+      }
+      .detail-head {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        padding: 12px 14px;
+        border-bottom: 1px solid var(--line);
+      }
+      .detail-head b {
+        display: block;
+        font-size: 16px;
+      }
+      .detail-head span {
+        font-size: 13px;
+        color: var(--muted);
+        font-variant-numeric: tabular-nums;
+      }
+      .detail ul {
+        max-height: 40vh;
+        overflow-y: auto;
+      }
+
+      /* ---------- Сделано ---------- */
+      .done-total {
+        display: flex;
+        align-items: baseline;
+        gap: 10px;
+        margin: 4px 0 18px;
+      }
+      .done-total b {
+        font-size: 44px;
+        line-height: 1;
+        color: var(--ring);
+        font-variant-numeric: tabular-nums;
+      }
+      .done-total span {
+        color: var(--muted);
+      }
+
+      footer {
+        margin-top: 20px;
+        font-size: 13px;
+        color: var(--muted);
+      }
+      .toast {
+        position: fixed;
+        left: 50%;
+        bottom: calc(20px + env(safe-area-inset-bottom));
+        transform: translateX(-50%);
+        background: var(--ink);
+        color: var(--bg);
+        border-radius: 12px;
+        padding: 10px 12px 10px 16px;
+        display: flex;
+        align-items: center;
+        gap: 14px;
+        font-size: 14px;
+        box-shadow: 0 10px 30px rgba(0, 0, 0, 0.25);
+        max-width: calc(100% - 32px);
+        z-index: 5;
+      }
+      .toast button {
+        border: 0;
+        background: transparent;
+        color: var(--ring);
+        font: inherit;
+        font-weight: 700;
+        cursor: pointer;
+        padding: 6px 8px;
+      }
+      @media (prefers-reduced-motion: reduce) {
+        * {
+          transition: none !important;
+        }
+      }
+
+      /* ---------- Привычки ---------- */
+      .tabs {
+        grid-template-columns: repeat(4, 1fr);
+      }
+      .tabs button {
+        font-size: 12.5px;
+        padding: 8px 0;
+        letter-spacing: -0.01em;
+      }
+      @media (max-width: 379px) {
+        .tabs button {
+          font-size: 11.5px;
+        }
+      }
+      .habit {
+        display: grid;
+        grid-template-columns: auto 1fr auto;
+        gap: 12px;
+        align-items: center;
+        padding: 12px 14px;
+        border-top: 1px solid var(--line);
+      }
+      .habit:first-child,
+      .sport:first-child {
+        border-top: 0;
+      }
+      .habit .check {
+        border-color: var(--muted);
+      }
+      .habit .check:checked {
+        background: var(--hc);
+        border-color: var(--hc);
+      }
+      .habit-name {
+        font-weight: 500;
+        overflow-wrap: anywhere;
+      }
+      .habit-name.done {
+        color: var(--muted);
+        text-decoration: line-through;
+      }
+      .habit-goal {
+        font-size: 13px;
+        color: var(--muted);
+      }
+      .week {
+        display: flex;
+        gap: 5px;
+        margin-top: 6px;
+      }
+      .dot {
+        width: 22px;
+        height: 22px;
+        border-radius: 50%;
+        display: grid;
+        place-items: center;
+        font-size: 10px;
+        font-weight: 600;
+        color: var(--muted);
+        box-shadow: inset 0 0 0 1px var(--line);
+        flex: none;
+      }
+      .dot.d {
+        background: var(--hc);
+        color: #fff;
+        box-shadow: none;
+        font-size: 11px;
+      }
+      .dot.miss {
+        background: var(--bg);
+        color: #c9c2b8;
+        text-decoration: line-through;
+        box-shadow: none;
+      }
+      .dot.pre {
+        opacity: 0.35;
+      }
+      .dot.today {
+        box-shadow: inset 0 0 0 2px var(--hc);
+        color: var(--hc);
+      }
+      .dot.d.today {
+        color: #fff;
+        box-shadow:
+          0 0 0 2px var(--surface),
+          0 0 0 3.5px var(--hc);
+      }
+      .month-line {
+        font-size: 13px;
+        color: var(--muted);
+        margin-top: 6px;
+        font-variant-numeric: tabular-nums;
+      }
+      .month-line b {
+        color: var(--ink);
+      }
+      .count {
+        text-align: right;
+        font-variant-numeric: tabular-nums;
+        align-self: start;
+      }
+      .count b {
+        font-size: 20px;
+        display: block;
+        line-height: 1.15;
+      }
+      .count span {
+        font-size: 12px;
+        color: var(--muted);
+        white-space: nowrap;
+      }
+      .count.ok b,
+      .count.ok span {
+        color: #2f8f5b;
+      }
+      .count.bad b,
+      .count.bad span {
+        color: var(--late);
+      }
+      .sport {
+        padding: 12px 14px 14px;
+        border-top: 1px solid var(--line);
+      }
+      .sport-top {
+        display: flex;
+        justify-content: space-between;
+        gap: 12px;
+      }
+      .choice {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 8px;
+        margin: 10px 0 8px;
+      }
+      .chip {
+        border: 1px solid var(--line);
+        background: var(--surface);
+        color: var(--muted);
+        font: inherit;
+        font-size: 14px;
+        font-weight: 600;
+        border-radius: 99px;
+        padding: 9px 8px;
+        cursor: pointer;
+      }
+      .chip[aria-pressed='true'] {
+        background: var(--hc);
+        border-color: var(--hc);
+        color: #fff;
+      }
+      .chip:disabled {
+        cursor: default;
+        opacity: 0.5;
+      }
+
+      /* ---------- Вкладка «Привычки» ---------- */
+      .stats {
+        padding: 14px;
+        display: grid;
+        gap: 14px;
+      }
+      .stat {
+        display: grid;
+        grid-template-columns: 12px 1fr auto auto;
+        gap: 4px 10px;
+        align-items: center;
+      }
+      .sw {
+        width: 12px;
+        height: 12px;
+        border-radius: 50%;
+        background: var(--hc);
+      }
+      .stat .n {
+        font-weight: 600;
+      }
+      .stat .s {
+        font-size: 13px;
+        color: var(--muted);
+      }
+      .stat .v {
+        text-align: right;
+        font-variant-numeric: tabular-nums;
+        white-space: nowrap;
+      }
+      .stat .v b {
+        font-size: 20px;
+      }
+      .stat .v span {
+        font-size: 13px;
+        color: var(--muted);
+      }
+      .stat .bar {
+        grid-column: 2 / 5;
+        height: 6px;
+        background: var(--line);
+        border-radius: 9px;
+        overflow: hidden;
+      }
+      .stat .bar i {
+        display: block;
+        height: 100%;
+        background: var(--hc);
+        border-radius: 9px;
+      }
+      .stat .icon-btn {
+        width: 30px;
+        height: 30px;
+        font-size: 18px;
+      }
+      .monthnav {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 10px;
+      }
+      .monthnav h3 {
+        margin: 0;
+        font-size: 20px;
+      }
+      .monthnav button {
+        width: 38px;
+        height: 38px;
+        border-radius: 10px;
+        border: 1px solid var(--line);
+        background: var(--surface);
+        color: var(--ink);
+        font: inherit;
+        font-size: 18px;
+        cursor: pointer;
+      }
+      .monthnav button:disabled {
+        opacity: 0.35;
+        cursor: default;
+      }
+      .hcal {
+        padding: 14px;
+      }
+      .hcal .day.today .num {
+        background: var(--ink);
+      }
+      .legend {
+        display: flex;
+        gap: 6px 14px;
+        flex-wrap: wrap;
+        justify-content: center;
+        font-size: 13px;
+        color: var(--muted);
+        margin-top: 12px;
+      }
+      .legend span {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+      }
+      .hdetail {
+        padding: 4px 0;
+      }
+      .hdetail h4 {
+        margin: 0;
+        padding: 10px 14px 4px;
+        font-size: 16px;
+      }
+      .hdetail .habit,
+      .hdetail .sport {
+        border-top: 1px solid var(--line);
+      }
+      .hdetail .sport .choice {
+        margin: 8px 0 0;
+      }
+      .empty-note {
+        padding: 18px 14px;
+        color: var(--muted);
+        text-align: center;
+        font-size: 15px;
+      }
+      #detail-list li:not(:first-child) > .habit,
+      #detail-list li:not(:first-child) > .sport {
+        border-top: 1px solid var(--line);
+      }
+
+      /* ---------- Питание ---------- */
+      .tabs {
+        grid-template-columns: repeat(5, 1fr);
+      }
+      .tabs button {
+        font-size: 11.5px;
+        letter-spacing: -0.02em;
+      }
+      @media (max-width: 379px) {
+        .tabs button {
+          font-size: 10.5px;
+        }
+      }
+      :root {
+        --good: #2f8f5b;
+        --mid: #d98a00;
+        --bad: #d23b3b;
+      }
+      .food-row {
+        padding: 12px 14px;
+        border-top: 1px solid var(--line);
+      }
+      .food-row:first-child {
+        border-top: 0;
+      }
+      .food-top {
+        display: flex;
+        justify-content: space-between;
+        align-items: baseline;
+        gap: 10px;
+      }
+      .food-name {
+        font-weight: 600;
+      }
+      .food-hint {
+        font-size: 13px;
+        color: var(--muted);
+      }
+      .seg {
+        display: grid;
+        grid-template-columns: repeat(3, 1fr);
+        gap: 6px;
+        margin-top: 8px;
+      }
+      .seg button,
+      .pair button {
+        border: 1px solid var(--line);
+        background: var(--surface);
+        color: var(--muted);
+        font: inherit;
+        font-size: 13.5px;
+        font-weight: 600;
+        cursor: pointer;
+        white-space: nowrap;
+      }
+      .seg button {
+        border-radius: 10px;
+        padding: 9px 4px;
+      }
+      .meal {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        gap: 8px;
+      }
+      .pair {
+        display: flex;
+        gap: 6px;
+      }
+      .pair button {
+        border-radius: 99px;
+        padding: 8px 12px;
+      }
+      .food button[aria-pressed='true'] {
+        color: #fff;
+      }
+      .food button.g[aria-pressed='true'] {
+        background: var(--good);
+        border-color: var(--good);
+      }
+      .food button.m[aria-pressed='true'] {
+        background: var(--mid);
+        border-color: var(--mid);
+      }
+      .food button.b[aria-pressed='true'] {
+        background: var(--bad);
+        border-color: var(--bad);
+      }
+      .food button:disabled {
+        cursor: default;
+        opacity: 0.55;
+      }
+      .food-note {
+        width: 100%;
+        margin-top: 8px;
+        font: inherit;
+        font-size: 15px;
+        padding: 9px 11px;
+        border-radius: 10px;
+        border: 1px solid transparent;
+        background: #fbe4e2;
+        color: #7a2a24;
+        outline: none;
+      }
+      .food-note:focus {
+        border-color: var(--bad);
+      }
+      .food-note::placeholder {
+        color: #c08a85;
+      }
+      .score {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        padding: 12px 14px;
+        border-top: 1px solid var(--line);
+      }
+      .score .big {
+        flex: none;
+        width: 34px;
+        height: 34px;
+        border-radius: 50%;
+        display: grid;
+        place-items: center;
+        font-weight: 700;
+        color: #fff;
+        background: var(--line);
+      }
+      .score b {
+        display: block;
+        font-size: 15px;
+      }
+      .score span {
+        font-size: 13px;
+        color: var(--muted);
+      }
+      .score.g {
+        background: #e3f2e9;
+      }
+      .score.g .big {
+        background: var(--good);
+      }
+      .score.m {
+        background: #fbf0dc;
+      }
+      .score.m .big {
+        background: var(--mid);
+      }
+      .score.b {
+        background: #fbe4e2;
+      }
+      .score.b .big {
+        background: var(--bad);
+      }
+      .fweek {
+        display: grid;
+        grid-template-columns: 62px repeat(7, 1fr);
+        gap: 6px 4px;
+        padding: 12px 14px 8px;
+        align-items: center;
+        font-size: 12px;
+      }
+      .fweek .h {
+        border: 0;
+        background: transparent;
+        font: inherit;
+        font-size: 12px;
+        font-weight: 600;
+        color: var(--muted);
+        text-align: center;
+        padding: 2px 0;
+        border-radius: 8px;
+        cursor: pointer;
+      }
+      .fweek .h.today {
+        color: var(--ink);
+      }
+      .fweek .h.sel {
+        background: var(--ink);
+        color: #fff;
+      }
+      .fweek .l {
+        color: var(--muted);
+        font-weight: 600;
+      }
+      .fweek .c {
+        height: 22px;
+        border-radius: 6px;
+        background: var(--bg);
+        border: 0;
+        padding: 0;
+        cursor: pointer;
+      }
+      .fweek .c.g {
+        background: var(--good);
+      }
+      .fweek .c.m {
+        background: var(--mid);
+      }
+      .fweek .c.b {
+        background: var(--bad);
+      }
+      .fweek .c.f {
+        background: transparent;
+        box-shadow: inset 0 0 0 1px var(--line);
+        cursor: default;
+      }
+      .fweek .c.selcol {
+        outline: 2px solid var(--ink);
+        outline-offset: 1px;
+      }
+      .flegend {
+        display: flex;
+        gap: 6px 14px;
+        flex-wrap: wrap;
+        justify-content: center;
+        font-size: 12.5px;
+        color: var(--muted);
+        padding: 0 14px 12px;
+      }
+      .flegend i {
+        display: inline-block;
+        width: 10px;
+        height: 10px;
+        border-radius: 3px;
+        margin-right: 5px;
+        vertical-align: -1px;
+      }
+      .fnav {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding: 12px 14px 0;
+      }
+      .fnav b {
+        font-size: 16px;
+      }
+      .fnav button {
+        width: 34px;
+        height: 34px;
+        border-radius: 10px;
+        border: 1px solid var(--line);
+        background: var(--surface);
+        color: var(--ink);
+        font: inherit;
+        font-size: 18px;
+        cursor: pointer;
+      }
+      .fnav button:disabled {
+        opacity: 0.35;
+        cursor: default;
+      }
+      .fdetail h4 {
+        margin: 0;
+        padding: 12px 14px 0;
+        font-size: 16px;
+      }
+      .fstats {
+        padding: 12px 14px;
+        display: grid;
+        gap: 14px;
+      }
+      .fst {
+        display: grid;
+        grid-template-columns: 1fr auto;
+        gap: 4px 10px;
+        align-items: baseline;
+      }
+      .fst b {
+        font-size: 20px;
+        font-variant-numeric: tabular-nums;
+      }
+      .fbar {
+        grid-column: 1 / 3;
+        height: 8px;
+        border-radius: 9px;
+        background: var(--line);
+        overflow: hidden;
+        display: flex;
+      }
+      .fbar i {
+        display: block;
+        height: 100%;
+      }
+      .fst .food-hint {
+        grid-column: 1 / 3;
+      }
+      .insight {
+        padding: 12px 14px;
+        font-size: 14px;
+        border-top: 1px solid var(--line);
+        background: #fbe4e2;
+        color: #7a2a24;
+      }
+      .insight.ok {
+        background: #e3f2e9;
+        color: #1f5e3b;
+      }
+    </style>
+  </head>
+  <body>
+    <main class="app">
+      <header>
+        <div>
+          <div class="date" id="today-label"></div>
+          <h1>Мои задачи</h1>
+          <div class="today-sub" id="today-sub"></div>
+        </div>
+        <div class="today-ring" id="today-ring" aria-hidden="true"></div>
+      </header>
+
+      <div class="tabs" role="tablist">
+        <button type="button" role="tab" data-tab="day" aria-selected="true">
+          Сегодня
+        </button>
+        <button type="button" role="tab" data-tab="cal" aria-selected="false">
+          Календарь
+        </button>
+        <button type="button" role="tab" data-tab="hab" aria-selected="false">
+          Привычки
+        </button>
+        <button type="button" role="tab" data-tab="food" aria-selected="false">
+          Питание
+        </button>
+        <button type="button" role="tab" data-tab="done" aria-selected="false">
+          Сделано
+        </button>
+      </div>
+
+      <!-- ===== Сегодня ===== -->
+      <section id="view-day">
+        <form class="add" id="add" autocomplete="off">
+          <input
+            type="text"
+            id="new-text"
+            placeholder="Новая задача…"
+            maxlength="300"
+            aria-label="Новая задача"
+          />
+          <input type="date" id="new-date" aria-label="На какой день" />
+          <button class="btn" type="submit">Добавить</button>
+          <label class="repeat">
+            <input type="checkbox" id="new-daily" />
+            <span>Привычка — каждый день</span>
+          </label>
+        </form>
+
+        <div class="section">
+          <h2><span>Задачи на сегодня</span><span id="today-count"></span></h2>
+          <div class="card"><ul class="tasks" id="list-today"></ul></div>
+        </div>
+        <div class="section" id="sec-habits">
+          <h2><span>Привычки</span><span id="week-label"></span></h2>
+          <div class="card" id="habit-list"></div>
+        </div>
+        <div class="section" id="sec-food">
+          <h2><span>Питание</span><span>сегодня</span></h2>
+          <div class="card" id="food-today"></div>
+        </div>
+
+        <div class="section" id="sec-tomorrow">
+          <h2><span>Завтра</span></h2>
+          <div class="card soon">
+            <div class="lead">Напоминание: завтра нужно сделать</div>
+            <ul class="tasks" id="list-tomorrow"></ul>
+          </div>
+        </div>
+
+        <div class="section" id="sec-later">
+          <h2><span>Запланировано</span></h2>
+          <div class="card"><ul class="tasks" id="list-later"></ul></div>
+        </div>
+      </section>
+
+      <!-- ===== Календарь задач ===== -->
+      <section id="view-cal" hidden>
+        <div class="detail" id="detail">
+          <div class="card">
+            <div class="detail-head" id="detail-head"></div>
+            <ul class="tasks" id="detail-list"></ul>
+          </div>
+        </div>
+        <div id="months"></div>
+      </section>
+
+      <!-- ===== Привычки ===== -->
+      <section id="view-hab" hidden>
+        <div class="section">
+          <h2><span>Итоги месяца</span><span id="hab-month-label"></span></h2>
+          <div class="card stats" id="hab-stats"></div>
+        </div>
+        <div class="card hcal">
+          <div class="monthnav">
+            <button type="button" id="hab-prev" aria-label="Предыдущий месяц">‹</button>
+            <h3 id="hab-title"></h3>
+            <button type="button" id="hab-next" aria-label="Следующий месяц">›</button>
+          </div>
+          <div class="grid7" id="hab-grid"></div>
+          <div class="legend" id="hab-legend"></div>
+        </div>
+        <div class="section" style="margin-top: 16px">
+          <div class="card hdetail" id="hab-detail"></div>
+        </div>
+      </section>
+
+      <!-- ===== Питание ===== -->
+      <section id="view-food" hidden>
+        <div class="section">
+          <h2><span>Неделя</span></h2>
+          <div class="card food">
+            <div class="fnav">
+              <button type="button" id="food-week-prev" aria-label="Предыдущая неделя">
+                ‹
+              </button>
+              <b id="food-week-title"></b>
+              <button type="button" id="food-week-next" aria-label="Следующая неделя">
+                ›
+              </button>
+            </div>
+            <div class="fweek" id="food-week"></div>
+            <div class="flegend">
+              <span><i style="background: var(--good)"></i>хорошо</span>
+              <span><i style="background: var(--mid)"></i>немного</span>
+              <span><i style="background: var(--bad)"></i>перебор / неполезно</span>
+            </div>
+          </div>
+        </div>
+        <div class="section">
+          <h2><span>День</span><span>нажмите на день в таблице</span></h2>
+          <div class="card fdetail" id="food-detail"></div>
+        </div>
+        <div class="section">
+          <h2><span>Итоги месяца</span></h2>
+          <div class="card food">
+            <div class="fnav">
+              <button type="button" id="food-month-prev" aria-label="Предыдущий месяц">
+                ‹
+              </button>
+              <b id="food-month-title"></b>
+              <button type="button" id="food-month-next" aria-label="Следующий месяц">
+                ›
+              </button>
+            </div>
+            <div class="fstats" id="food-stats"></div>
+            <div class="insight" id="food-insight" hidden></div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ===== Сделано ===== -->
+      <section id="view-done" hidden>
+        <div class="done-total">
+          <b id="done-total">0</b><span id="done-total-label">дел завершено</span>
+        </div>
+        <div id="done-groups"></div>
+      </section>
+
+      <footer>Данные хранятся на сервере и одинаковы на всех устройствах. Задачу можно добавить и сообщением боту.</footer>
+    </main>
+
+    <div class="toast" id="toast" hidden>
+      <span id="toast-text"></span>
+      <button type="button" id="undo">Вернуть</button>
+    </div>
+
+    <script>
+      function startApp() {
+      /*
+       * Две сущности.
+       *
+       * ЗАДАЧИ (state.tasks). У задачи есть день, на который она назначена
+       * (date), и день, когда её сделали (doneDay). Несделанная задача
+       * переходит на следующий день, пока её не отметят.
+       *
+       * ПРИВЫЧКИ (state.habits + отметки в state.log[день][id]).
+       *   kind 'daily'  — каждый день (Duolingo). Учитываются в кольце
+       *                   дня. Пропуск не копится: завтра — новый день.
+       *   kind 'weekly' — N раз в неделю (Спорт: тренировка или ходьба).
+       *                   В кольце дня не учитываются, у них своя цель недели.
+       *                   Отметка — список вариантов: ['train'], ['walk'] или
+       *                   оба. Для цели недели день считается один раз.
+       *
+       * Кольцо дня = сделано / (задачи дня + ежедневные привычки). Прошедшие
+       * дни фиксируются (state.history), чтобы перенос задач не переписывал
+       * историю.
+       */
+      var KEY = 'todo.v2';
+      var OLD_KEY = 'todo.tasks.v1';
+      var COLORS = ['#e5264f', '#2f7bd8', '#f08c00', '#8e44ad', '#0f9d9a', '#c2185b'];
+      var SPORT_COLOR = '#2f8f5b';
+      var SPORT_OPTIONS = [
+        { key: 'train', label: 'Тренировка', icon: '🏋️' },
+        { key: 'walk', label: 'Ходьба', icon: '🚶' },
+      ];
+      var WD = ['Пн', 'Вт', 'Ср', 'Чт', 'Пт', 'Сб', 'Вс'];
+
+      var state = load();
+      var tab = 'day';
+      var selectedDay = null;
+      var habMonth = null;
+      var habDay = null;
+      var undoSnapshot = null;
+      var toastTimer = null;
+
+      // ---------- Даты ----------
+      function iso(d) {
+        return (
+          d.getFullYear() +
+          '-' +
+          String(d.getMonth() + 1).padStart(2, '0') +
+          '-' +
+          String(d.getDate()).padStart(2, '0')
+        );
+      }
+      function parse(s) {
+        return new Date(s + 'T00:00:00');
+      }
+      function addDays(s, n) {
+        var d = parse(s);
+        d.setDate(d.getDate() + n);
+        return iso(d);
+      }
+      function today() {
+        return iso(new Date());
+      }
+      function weekStart(s) {
+        var d = parse(s);
+        return addDays(s, -((d.getDay() + 6) % 7));
+      }
+      function monthStart(s) {
+        return s.slice(0, 8) + '01';
+      }
+      function monthEnd(s) {
+        var d = parse(monthStart(s));
+        return iso(new Date(d.getFullYear(), d.getMonth() + 1, 0));
+      }
+      function addMonths(s, n) {
+        var d = parse(monthStart(s));
+        return iso(new Date(d.getFullYear(), d.getMonth() + n, 1));
+      }
+      function cap(s) {
+        return s.charAt(0).toUpperCase() + s.slice(1);
+      }
+      function human(s) {
+        return parse(s).toLocaleDateString('ru-RU', { day: 'numeric', month: 'long' });
+      }
+      function monthName(s) {
+        return cap(parse(s).toLocaleDateString('ru-RU', { month: 'long' }));
+      }
+      function relative(s) {
+        var t = today();
+        if (s === t) return 'Сегодня';
+        if (s === addDays(t, -1)) return 'Вчера';
+        if (s === addDays(t, 1)) return 'Завтра';
+        return cap(
+          parse(s).toLocaleDateString('ru-RU', {
+            weekday: 'short',
+            day: 'numeric',
+            month: 'long',
+          }),
+        );
+      }
+
+      // ---------- Хранение и перенос старых данных ----------
+      function uid() {
+        return Date.now().toString(36) + Math.random().toString(36).slice(2, 7);
+      }
+      function load() {
+        var s = { tasks: [], habits: [], log: {}, history: {}, frozenUntil: null };
+        try {
+          var raw = window.__SERVER_DATA__;
+          if (raw) {
+            var data = JSON.parse(raw);
+            if (data && Array.isArray(data.tasks)) s = data;
+          } else {
+            var old = JSON.parse(localStorage.getItem(OLD_KEY) || '[]');
+            if (Array.isArray(old)) {
+              s.tasks = old.map(function (t) {
+                var created = iso(new Date(t.created || Date.now()));
+                return {
+                  id: t.id,
+                  text: t.text,
+                  date: t.due && t.due > created ? t.due : created,
+                  done: !!t.done,
+                  doneDay: t.done ? iso(new Date(t.doneAt || Date.now())) : null,
+                  created: t.created || Date.now(),
+                };
+              });
+            }
+          }
+        } catch (e) {}
+        s.habits = s.habits || [];
+        s.log = s.log || {};
+        s.history = s.history || {};
+        s.food = s.food || {};
+        migrate(s);
+        return s;
+      }
+      function migrate(s) {
+        var t = today();
+        // Ежедневные задачи прошлой версии становятся привычками,
+        // их отметки — отметками привычек.
+        if (Array.isArray(s.daily) && s.daily.length) {
+          s.daily.forEach(function (h) {
+            if (!s.habits.some((x) => x.id === h.id)) {
+              s.habits.push({
+                id: h.id,
+                name: h.text,
+                kind: 'daily',
+                start: h.start || t,
+                stopped: h.stopped || null,
+              });
+            }
+          });
+        }
+        s.tasks = s.tasks.filter(function (x) {
+          if (!x.daily) return true;
+          if (x.done) {
+            s.log[x.date] = s.log[x.date] || {};
+            s.log[x.date][x.daily] = true;
+          }
+          return false;
+        });
+        delete s.daily;
+        delete s.seededDaily;
+
+        // Привычки по умолчанию.
+        function ensure(name, extra) {
+          if (s.habits.some((x) => x.name === name)) return;
+          s.habits.push(
+            Object.assign(
+              { id: uid() + s.habits.length, name: name, start: t, stopped: null },
+              extra,
+            ),
+          );
+        }
+        if (!s.seededHabits) {
+          ensure('Duolingo China', { kind: 'daily' });
+          ensure('Duolingo Eng', { kind: 'daily' });
+          ensure('Спорт', {
+            kind: 'weekly',
+            goal: 5,
+            options: SPORT_OPTIONS,
+            color: SPORT_COLOR,
+          });
+          s.seededHabits = true;
+        }
+        // «ПП день» убран по просьбе владельца: удаляем привычку, её отметки
+        // и её вклад в уже зафиксированные кольца прошлых дней.
+        if (!s.ppRemoved) {
+          var pp = s.habits.find((h) => h.name === 'ПП день');
+          if (pp) {
+            Object.keys(s.history).forEach(function (d) {
+              if (d < pp.start || (pp.stopped && d >= pp.stopped)) return;
+              var hd = s.history[d];
+              hd.total = Math.max(0, hd.total - 1);
+              if (s.log[d] && s.log[d][pp.id]) hd.done = Math.max(0, hd.done - 1);
+              if (!hd.total) delete s.history[d];
+            });
+            Object.keys(s.log).forEach(function (d) {
+              delete s.log[d][pp.id];
+            });
+            s.habits = s.habits.filter((h) => h !== pp);
+          }
+          s.ppRemoved = true;
+        }
+        // Цвета: у каждой привычки свой, стабильный.
+        var used = s.habits.map((h) => h.color).filter(Boolean);
+        s.habits.forEach(function (h) {
+          if (h.color) return;
+          var free = COLORS.find((c) => used.indexOf(c) === -1) || COLORS[0];
+          h.color = free;
+          used.push(free);
+        });
+      }
+      function save() {
+        try {
+          var json = JSON.stringify(state);
+          if (window.__sync) window.__sync(json);
+          localStorage.setItem(KEY, json);
+        } catch (e) {}
+      }
+
+      // ---------- Привычки: отметки и подсчёт ----------
+      function activeOn(h, d) {
+        return d >= h.start && (!h.stopped || d < h.stopped);
+      }
+      function habitsOn(d) {
+        return state.habits.filter((h) => activeOn(h, d));
+      }
+      function mark(h, d) {
+        var v = state.log[d] && state.log[d][h.id];
+        if (h.kind === 'weekly') return Array.isArray(v) ? v : [];
+        return !!v;
+      }
+      function isDone(h, d) {
+        var v = mark(h, d);
+        return h.kind === 'weekly' ? v.length > 0 : v;
+      }
+      function setMark(h, d, value) {
+        state.log[d] = state.log[d] || {};
+        var empty = h.kind === 'weekly' ? !value.length : !value;
+        if (empty) delete state.log[d][h.id];
+        else state.log[d][h.id] = value;
+        // Прошлый день уже зафиксирован — пересчитываем его кольцо.
+        if (d < today()) {
+          var s = statsPast(d);
+          if (s.total) state.history[d] = s;
+          else delete state.history[d];
+        }
+        save();
+      }
+      function toggleDaily(h, d) {
+        setMark(h, d, !isDone(h, d));
+      }
+      function toggleOption(h, d, key) {
+        var v = mark(h, d).slice();
+        var i = v.indexOf(key);
+        if (i === -1) v.push(key);
+        else v.splice(i, 1);
+        setMark(h, d, v);
+      }
+      function streak(h) {
+        var t = today();
+        var d = isDone(h, t) ? t : addDays(t, -1);
+        var n = 0;
+        while (activeOn(h, d) && isDone(h, d)) {
+          n++;
+          d = addDays(d, -1);
+        }
+        return n;
+      }
+      function weekInfo(h) {
+        var t = today();
+        var ws = weekStart(t);
+        var done = 0;
+        var missed = 0;
+        for (var i = 0; i < 7; i++) {
+          var d = addDays(ws, i);
+          if (!activeOn(h, d)) continue;
+          if (isDone(h, d)) done++;
+          else if (d < t) missed++;
+        }
+        return { done: done, missed: missed };
+      }
+      function monthInfo(h, m) {
+        var t = today();
+        var end = monthEnd(m);
+        var days = 0;
+        var done = 0;
+        var opts = {};
+        for (var d = monthStart(m); d <= end && d <= t; d = addDays(d, 1)) {
+          if (!activeOn(h, d)) continue;
+          days++;
+          if (isDone(h, d)) done++;
+          if (h.kind === 'weekly') {
+            mark(h, d).forEach(function (k) {
+              opts[k] = (opts[k] || 0) + 1;
+            });
+          }
+        }
+        return { days: days, done: done, opts: opts };
+      }
+      function optionLine(h, opts) {
+        return (h.options || []).map((o) => o.icon + ' ' + (opts[o.key] || 0)).join(', ');
+      }
+
+      // ---------- Подсчёт дня (задачи + ежедневные привычки) ----------
+      function tasksOfDay(d) {
+        var t = today();
+        return state.tasks.filter(function (x) {
+          if (x.doneDay === d) return true;
+          if (d > t) return !x.done && x.date === d;
+          return x.date <= d && (!x.doneDay || x.doneDay > d);
+        });
+      }
+      function dailyHabitsOn(d) {
+        return habitsOn(d).filter((h) => h.kind === 'daily');
+      }
+      function liveStats(d) {
+        var list = tasksOfDay(d);
+        var done = list.filter((x) => x.doneDay === d).length;
+        var total = list.length;
+        if (d <= today()) {
+          dailyHabitsOn(d).forEach(function (h) {
+            total++;
+            if (isDone(h, d)) done++;
+          });
+        }
+        return { done: done, total: total };
+      }
+      function statsPast(d) {
+        var list = state.tasks.filter(function (x) {
+          return x.doneDay === d || (x.date <= d && (!x.doneDay || x.doneDay > d));
+        });
+        var done = list.filter((x) => x.doneDay === d).length;
+        var total = list.length;
+        dailyHabitsOn(d).forEach(function (h) {
+          total++;
+          if (isDone(h, d)) done++;
+        });
+        return { done: done, total: total };
+      }
+      function stats(d) {
+        if (d < today()) return state.history[d] || { done: 0, total: 0 };
+        return liveStats(d);
+      }
+      // Закрываем прошедшие дни: их цифры больше не меняются от переносов.
+      function freeze() {
+        var y = addDays(today(), -1);
+        var start = state.frozenUntil ? addDays(state.frozenUntil, 1) : null;
+        if (!start) {
+          start = y;
+          state.tasks.forEach(function (x) {
+            if (x.date < start) start = x.date;
+            if (x.doneDay && x.doneDay < start) start = x.doneDay;
+          });
+          state.habits.forEach(function (h) {
+            if (h.start < start) start = h.start;
+          });
+        }
+        if (start > y) return;
+        for (var d = start; d <= y; d = addDays(d, 1)) {
+          var s = statsPast(d);
+          if (s.total) state.history[d] = s;
+        }
+        state.frozenUntil = y;
+        save();
+      }
+
+      // ---------- Кольца ----------
+      var svgNS = 'http://www.w3.org/2000/svg';
+      function circle(size, r, stroke, color, opacity) {
+        var c = document.createElementNS(svgNS, 'circle');
+        c.setAttribute('cx', size / 2);
+        c.setAttribute('cy', size / 2);
+        c.setAttribute('r', r);
+        c.setAttribute('fill', 'none');
+        c.setAttribute('stroke', color);
+        c.setAttribute('stroke-width', stroke);
+        if (opacity !== undefined) c.setAttribute('opacity', opacity);
+        return c;
+      }
+      function newSvg(size) {
+        var svg = document.createElementNS(svgNS, 'svg');
+        svg.setAttribute('viewBox', '0 0 ' + size + ' ' + size);
+        svg.setAttribute('width', size);
+        svg.setAttribute('height', size);
+        return svg;
+      }
+      function ring(done, total, size, stroke) {
+        var r = (size - stroke) / 2;
+        var c = 2 * Math.PI * r;
+        var p = total ? done / total : 0;
+        var svg = newSvg(size);
+        svg.appendChild(circle(size, r, stroke, 'var(--ring-track)', total ? 1 : 0.45));
+        if (p > 0) {
+          var arc = circle(size, r, stroke, 'var(--ring)');
+          arc.setAttribute('stroke-linecap', 'round');
+          arc.setAttribute('stroke-dasharray', p * c + ' ' + c);
+          arc.setAttribute('transform', 'rotate(-90 ' + size / 2 + ' ' + size / 2 + ')');
+          svg.appendChild(arc);
+        }
+        return svg;
+      }
+      // Кольца привычек: внешнее — первая привычка, внутрь — следующие.
+      function habitRings(d, size) {
+        var list = habitsOn(d);
+        var svg = newSvg(size);
+        if (!list.length) {
+          svg.appendChild(circle(size, size / 2 - 3, 4, 'var(--line)', 0.6));
+          return svg;
+        }
+        var stroke = Math.min(4.5, (size / 2 - 4) / list.length - 1);
+        var r = size / 2 - stroke / 2 - 1;
+        var future = d > today();
+        list.forEach(function (h) {
+          var on = isDone(h, d);
+          svg.appendChild(circle(size, r, stroke, h.color, on ? 1 : future ? 0.1 : 0.2));
+          r -= stroke + 1;
+        });
+        return svg;
+      }
+
+      // ---------- Строка привычки ----------
+      function weekDots(h) {
+        var t = today();
+        var ws = weekStart(t);
+        var wrap = document.createElement('div');
+        wrap.className = 'week';
+        for (var i = 0; i < 7; i++) {
+          var d = addDays(ws, i);
+          var dot = document.createElement('span');
+          dot.className = 'dot';
+          dot.textContent = WD[i];
+          if (!activeOn(h, d)) dot.className += ' pre';
+          else if (isDone(h, d)) {
+            dot.className += ' d';
+            if (h.kind === 'weekly') {
+              var m = mark(h, d);
+              dot.textContent =
+                m.length > 1
+                  ? '×' + m.length
+                  : (h.options.find((o) => o.key === m[0]) || {}).icon || '✓';
+            }
+          } else if (d < t) dot.className += ' miss';
+          if (d === t) dot.className += ' today';
+          wrap.appendChild(dot);
+        }
+        return wrap;
+      }
+      function habitRow(h, d, opts) {
+        opts = opts || {};
+        var full = !opts.compact;
+        var el = document.createElement('div');
+        el.style.setProperty('--hc', h.color);
+        var editable = d <= today();
+
+        if (h.kind === 'weekly') {
+          el.className = 'sport';
+          var top = document.createElement('div');
+          top.className = 'sport-top';
+          var left = document.createElement('div');
+          left.innerHTML = '<div class="habit-name"></div><div class="habit-goal"></div>';
+          left.firstChild.textContent = h.name;
+          left.lastChild.textContent =
+            h.options.map((o) => o.label.toLowerCase()).join(' или ') +
+            ' · цель ' +
+            h.goal +
+            ' раз в неделю';
+          left.lastChild.textContent = cap(left.lastChild.textContent);
+          top.appendChild(left);
+          if (full) top.appendChild(weeklyCount(h));
+          el.appendChild(top);
+
+          var choice = document.createElement('div');
+          choice.className = 'choice';
+          var m = mark(h, d);
+          h.options.forEach(function (o) {
+            var b = document.createElement('button');
+            b.type = 'button';
+            b.className = 'chip';
+            b.textContent = o.icon + ' ' + o.label;
+            b.setAttribute('aria-pressed', String(m.indexOf(o.key) !== -1));
+            b.disabled = !editable;
+            b.addEventListener('click', function () {
+              toggleOption(h, d, o.key);
+              renderAll();
+            });
+            choice.appendChild(b);
+          });
+          el.appendChild(choice);
+          if (full) {
+            el.appendChild(weekDots(h));
+            var mi = monthInfo(h, today());
+            var ml = document.createElement('div');
+            ml.className = 'month-line';
+            ml.innerHTML = monthName(today()) + ': <b></b>';
+            ml.querySelector('b').textContent = mi.done;
+            ml.appendChild(
+              document.createTextNode(
+                ' ' +
+                  plural(mi.done, 'день', 'дня', 'дней') +
+                  ' — ' +
+                  optionLine(h, mi.opts),
+              ),
+            );
+            el.appendChild(ml);
+          }
+          return el;
+        }
+
+        el.className = 'habit';
+        var cb = document.createElement('input');
+        cb.type = 'checkbox';
+        cb.className = 'check';
+        cb.checked = isDone(h, d);
+        cb.disabled = !editable;
+        cb.setAttribute('aria-label', h.name);
+        cb.addEventListener('change', function () {
+          toggleDaily(h, d);
+          setTimeout(renderAll, 150);
+        });
+        el.appendChild(cb);
+
+        var body = document.createElement('div');
+        var name = document.createElement('div');
+        name.className = 'habit-name' + (cb.checked ? ' done' : '');
+        name.textContent = h.name;
+        body.appendChild(name);
+        if (h.note) {
+          var note = document.createElement('div');
+          note.className = 'habit-goal';
+          note.textContent = h.note;
+          body.appendChild(note);
+        }
+        if (full) {
+          body.appendChild(weekDots(h));
+          var mi2 = monthInfo(h, today());
+          var ml2 = document.createElement('div');
+          ml2.className = 'month-line';
+          ml2.innerHTML =
+            monthName(today()) +
+            ': <b></b> из ' +
+            mi2.days +
+            ' ' +
+            plural(mi2.days, 'дня', 'дней', 'дней');
+          ml2.querySelector('b').textContent = mi2.done;
+          body.appendChild(ml2);
+        }
+        el.appendChild(body);
+
+        if (full) {
+          var wi = weekInfo(h);
+          var cnt = document.createElement('div');
+          cnt.className = 'count' + (wi.done === 7 ? ' ok' : '');
+          var st = streak(h);
+          cnt.innerHTML = '<b></b><span></span>';
+          cnt.firstChild.textContent = wi.done + '/7';
+          cnt.lastChild.textContent = st ? 'серия ' + st + ' дн.' : 'за неделю';
+          el.appendChild(cnt);
+        }
+        return el;
+      }
+      function weeklyCount(h) {
+        var wi = weekInfo(h);
+        var allowed = 7 - h.goal;
+        var cnt = document.createElement('div');
+        cnt.innerHTML = '<b></b><span></span>';
+        cnt.firstChild.textContent = wi.done + '/' + h.goal;
+        if (wi.done >= h.goal) {
+          cnt.className = 'count ok';
+          cnt.lastChild.textContent = 'цель выполнена';
+        } else if (wi.missed > allowed) {
+          cnt.className = 'count bad';
+          cnt.lastChild.textContent = 'пропусков ' + wi.missed + ' из ' + allowed;
+        } else {
+          cnt.className = 'count';
+          cnt.lastChild.textContent = 'пропусков ' + wi.missed + ' из ' + allowed;
+        }
+        return cnt;
+      }
+
+      // ---------- Строка задачи ----------
+      var CAL_ICON =
+        '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3.5" y="5" width="17" height="15.5" rx="2.5"/><path d="M3.5 10h17M8 3v4M16 3v4"/></svg>';
+
+      function row(t, opts) {
+        opts = opts || {};
+        var li = document.createElement('li');
+        li.className = 'task' + (t.done ? ' done' : '');
+
+        var cb = document.createElement('input');
+        cb.type = 'checkbox';
+        cb.className = 'check';
+        cb.checked = t.done;
+        cb.setAttribute('aria-label', 'Сделано: ' + t.text);
+        cb.addEventListener('change', function () {
+          t.done = cb.checked;
+          t.doneDay = t.done ? today() : null;
+          save();
+          setTimeout(renderAll, 220);
+        });
+
+        var body = document.createElement('div');
+        body.className = 'body';
+        var text = document.createElement('div');
+        text.className = 'text';
+        text.textContent = t.text;
+        text.addEventListener('click', function () {
+          startEdit(text, t);
+        });
+        body.appendChild(text);
+        if (opts.meta) {
+          var meta = document.createElement('div');
+          meta.className = 'meta' + (opts.late ? ' late' : '');
+          meta.textContent = opts.meta;
+          body.appendChild(meta);
+        }
+        li.appendChild(cb);
+        li.appendChild(body);
+
+        var move = document.createElement('label');
+        move.className = 'icon-btn';
+        move.title = 'Перенести на другой день';
+        if (!t.done) {
+          move.innerHTML = CAL_ICON;
+          var picker = document.createElement('input');
+          picker.type = 'date';
+          picker.value = t.date;
+          picker.min = today();
+          picker.setAttribute('aria-label', 'Перенести: ' + t.text);
+          picker.addEventListener('change', function () {
+            if (!picker.value) return;
+            t.date = picker.value < today() ? today() : picker.value;
+            save();
+            renderAll();
+            showToast('Перенесено на ' + relative(t.date).toLowerCase());
+          });
+          move.appendChild(picker);
+        }
+        li.appendChild(move);
+
+        var del = document.createElement('button');
+        del.type = 'button';
+        del.className = 'icon-btn del';
+        del.textContent = '×';
+        del.setAttribute('aria-label', 'Удалить: ' + t.text);
+        del.addEventListener('click', function () {
+          snapshot();
+          state.tasks = state.tasks.filter((x) => x !== t);
+          save();
+          renderAll();
+          showToast('Задача удалена', true);
+        });
+        li.appendChild(del);
+        return li;
+      }
+      function fill(ul, items, emptyText) {
+        ul.textContent = '';
+        items.forEach(function (it) {
+          ul.appendChild(row(it.task, it));
+        });
+        if (!items.length && emptyText) {
+          var li = document.createElement('li');
+          li.className = 'empty';
+          li.textContent = emptyText;
+          ul.appendChild(li);
+        }
+      }
+
+      // ---------- Вкладка «Сегодня» ----------
+      function renderDay() {
+        var t = today();
+        var tm = addDays(t, 1);
+
+        var hl = document.getElementById('habit-list');
+        hl.textContent = '';
+        var hs = habitsOn(t);
+        hs.forEach(function (h) {
+          hl.appendChild(habitRow(h, t));
+        });
+        document.getElementById('sec-habits').hidden = !hs.length;
+        var ft = document.getElementById('food-today');
+        ft.textContent = '';
+        ft.appendChild(foodBlock(t));
+        var ws = weekStart(t);
+        document.getElementById('week-label').textContent =
+          'Неделя ' + parse(ws).getDate() + '–' + human(addDays(ws, 6));
+
+        var open = state.tasks
+          .filter((x) => !x.done && x.date <= t)
+          .sort((a, b) =>
+            a.date < b.date ? -1 : a.date > b.date ? 1 : a.created - b.created,
+          )
+          .map(function (x) {
+            return x.date < t
+              ? { task: x, meta: 'Перенесено с ' + human(x.date), late: true }
+              : { task: x };
+          });
+        var doneToday = state.tasks
+          .filter((x) => x.done && x.doneDay === t)
+          .map((x) => ({ task: x }));
+        fill(
+          document.getElementById('list-today'),
+          open.concat(doneToday),
+          'На сегодня задач нет. Добавьте первую выше.',
+        );
+        var tasksAll = open.length + doneToday.length;
+        document.getElementById('today-count').textContent = tasksAll
+          ? doneToday.length + ' из ' + tasksAll
+          : '';
+
+        var tomorrow = state.tasks
+          .filter((x) => !x.done && x.date === tm)
+          .map((x) => ({ task: x }));
+        fill(document.getElementById('list-tomorrow'), tomorrow);
+        document.getElementById('sec-tomorrow').hidden = !tomorrow.length;
+
+        var later = state.tasks
+          .filter((x) => !x.done && x.date > tm)
+          .sort((a, b) =>
+            a.date < b.date ? -1 : a.date > b.date ? 1 : a.created - b.created,
+          )
+          .map((x) => ({ task: x, meta: relative(x.date) }));
+        fill(document.getElementById('list-later'), later);
+        document.getElementById('sec-later').hidden = !later.length;
+      }
+
+      // ---------- Вкладка «Календарь» (задачи) ----------
+      function monthGrid(m, cell) {
+        var start = parse(monthStart(m));
+        var grid = document.createElement('div');
+        grid.className = 'grid7';
+        WD.forEach(function (w) {
+          var el = document.createElement('div');
+          el.className = 'wd';
+          el.textContent = w;
+          grid.appendChild(el);
+        });
+        var offset = (start.getDay() + 6) % 7;
+        for (var i = 0; i < offset; i++) grid.appendChild(document.createElement('div'));
+        var days = parse(monthEnd(m)).getDate();
+        for (var dn = 1; dn <= days; dn++) {
+          grid.appendChild(
+            cell(iso(new Date(start.getFullYear(), start.getMonth(), dn)), dn),
+          );
+        }
+        return grid;
+      }
+      function dayButton(d, n, selected, svg, label, onClick) {
+        var b = document.createElement('button');
+        b.type = 'button';
+        b.className =
+          'day' + (d === today() ? ' today' : '') + (d === selected ? ' sel' : '');
+        b.setAttribute('aria-label', label);
+        var num = document.createElement('span');
+        num.className = 'num';
+        num.textContent = n;
+        b.appendChild(num);
+        b.appendChild(svg);
+        b.addEventListener('click', onClick);
+        return b;
+      }
+      function renderCal() {
+        var t = today();
+        if (!selectedDay) selectedDay = t;
+        var first = t;
+        state.tasks.forEach(function (x) {
+          if (x.date < first) first = x.date;
+        });
+        Object.keys(state.history).forEach(function (d) {
+          if (d < first) first = d;
+        });
+        var wrap = document.getElementById('months');
+        wrap.textContent = '';
+        for (var m = monthStart(first); m <= addMonths(t, 1); m = addMonths(m, 1)) {
+          var box = document.createElement('div');
+          box.className = 'month';
+          var h = document.createElement('h3');
+          h.textContent = monthName(m) + ' ' + m.slice(0, 4);
+          box.appendChild(h);
+          box.appendChild(
+            monthGrid(m, function (d, n) {
+              var s = stats(d);
+              var pct = s.total ? Math.round((s.done / s.total) * 100) : null;
+              return dayButton(
+                d,
+                n,
+                selectedDay,
+                ring(s.done, s.total, 44, 8),
+                human(d) + (pct === null ? ', задач нет' : ', сделано ' + pct + '%'),
+                function () {
+                  selectedDay = d;
+                  renderCal();
+                  document
+                    .getElementById('detail')
+                    .scrollIntoView({ behavior: 'smooth' });
+                },
+              );
+            }),
+          );
+          wrap.appendChild(box);
+        }
+        renderDetail();
+      }
+      function renderDetail() {
+        var d = selectedDay;
+        var s = stats(d);
+        var head = document.getElementById('detail-head');
+        head.textContent = '';
+        head.appendChild(ring(s.done, s.total, 40, 6));
+        var info = document.createElement('div');
+        var b = document.createElement('b');
+        var near =
+          d === today() || d === addDays(today(), -1) || d === addDays(today(), 1);
+        b.textContent = relative(d) + (near ? ', ' + human(d) : '');
+        var sp = document.createElement('span');
+        sp.textContent = s.total
+          ? 'Сделано ' +
+            s.done +
+            ' из ' +
+            s.total +
+            ' · ' +
+            Math.round((s.done / s.total) * 100) +
+            '%'
+          : 'Задач нет';
+        info.appendChild(b);
+        info.appendChild(sp);
+        head.appendChild(info);
+
+        var list = tasksOfDay(d)
+          .sort((a, b) => (a.doneDay === d ? 1 : 0) - (b.doneDay === d ? 1 : 0))
+          .map(function (x) {
+            var meta = null;
+            var late = false;
+            if (x.doneDay !== d && d < today()) {
+              meta = x.done
+                ? 'Сделано ' + human(x.doneDay)
+                : 'Не сделано — перенесено дальше';
+              late = !x.done;
+            } else if (x.doneDay === d && x.date < d) {
+              meta = 'Было назначено на ' + human(x.date);
+            }
+            return { task: x, meta: meta, late: late };
+          });
+        var ul = document.getElementById('detail-list');
+        var habits = d <= today() ? dailyHabitsOn(d) : [];
+        fill(ul, list, habits.length ? null : 'В этот день задач не было.');
+        habits.forEach(function (h) {
+          var li = document.createElement('li');
+          li.appendChild(habitRow(h, d, { compact: true }));
+          ul.appendChild(li);
+        });
+      }
+
+      // ---------- Вкладка «Привычки» ----------
+      function renderHabits() {
+        var t = today();
+        if (!habMonth) habMonth = monthStart(t);
+        if (!habDay) habDay = t;
+        var m = habMonth;
+
+        document.getElementById('hab-month-label').textContent =
+          monthName(m) + ' ' + m.slice(0, 4);
+        var statsEl = document.getElementById('hab-stats');
+        statsEl.textContent = '';
+        var shown = state.habits.filter(function (h) {
+          return h.start <= monthEnd(m) && (!h.stopped || h.stopped > monthStart(m));
+        });
+        if (!shown.length) {
+          statsEl.innerHTML =
+            '<div class="empty-note">В этом месяце привычек не было.</div>';
+        }
+        shown.forEach(function (h) {
+          var mi = monthInfo(h, m);
+          var st = document.createElement('div');
+          st.className = 'stat';
+          st.style.setProperty('--hc', h.color);
+          var sub;
+          var val;
+          var pct;
+          if (h.kind === 'weekly') {
+            sub =
+              optionLine(h, mi.opts) +
+              (m === monthStart(t) ? ' · неделя ' + weekInfo(h).done + '/' + h.goal : '');
+            val =
+              '<b>' +
+              mi.done +
+              '</b><span> ' +
+              plural(mi.done, 'день', 'дня', 'дней') +
+              '</span>';
+            pct = mi.days ? Math.min(1, mi.done / ((mi.days * h.goal) / 7)) : 0;
+          } else {
+            var sk = m === monthStart(t) ? streak(h) : 0;
+            sub =
+              (h.note ? h.note + ' · ' : '') +
+              (sk ? 'серия ' + sk + ' дн.' : 'каждый день');
+            val = '<b>' + mi.done + '</b><span> из ' + mi.days + '</span>';
+            pct = mi.days ? mi.done / mi.days : 0;
+          }
+          st.innerHTML =
+            '<i class="sw"></i><div><div class="n"></div><div class="s"></div></div>' +
+            '<div class="v">' +
+            val +
+            '</div>';
+          st.querySelector('.n').textContent = h.name + (h.stopped ? ' (убрана)' : '');
+          st.querySelector('.s').textContent = sub;
+          if (!h.stopped) {
+            var del = document.createElement('button');
+            del.type = 'button';
+            del.className = 'icon-btn del';
+            del.textContent = '×';
+            del.title = 'Больше не отслеживать';
+            del.setAttribute('aria-label', 'Убрать привычку ' + h.name);
+            del.addEventListener('click', function () {
+              snapshot();
+              h.stopped = today() > h.start ? today() : h.start;
+              if (h.stopped === h.start) {
+                state.habits = state.habits.filter((x) => x !== h);
+              }
+              save();
+              renderAll();
+              showToast('Привычка «' + h.name + '» убрана', true);
+            });
+            st.appendChild(del);
+          } else {
+            st.appendChild(document.createElement('span'));
+          }
+          var bar = document.createElement('div');
+          bar.className = 'bar';
+          bar.innerHTML = '<i></i>';
+          bar.firstChild.style.width = Math.round(pct * 100) + '%';
+          st.appendChild(bar);
+          statsEl.appendChild(st);
+        });
+
+        document.getElementById('hab-title').textContent =
+          monthName(m) + ' ' + m.slice(0, 4);
+        var firstStart = state.habits.reduce((a, h) => (h.start < a ? h.start : a), t);
+        document.getElementById('hab-prev').disabled = m <= monthStart(firstStart);
+        document.getElementById('hab-next').disabled = m >= monthStart(t);
+
+        var gridWrap = document.getElementById('hab-grid');
+        var grid = monthGrid(m, function (d, n) {
+          var done = habitsOn(d).filter((h) => isDone(h, d)).length;
+          return dayButton(
+            d,
+            n,
+            habDay,
+            habitRings(d, 42),
+            human(d) + ', привычек сделано ' + done + ' из ' + habitsOn(d).length,
+            function () {
+              habDay = d;
+              renderHabits();
+              document
+                .getElementById('hab-detail')
+                .scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+            },
+          );
+        });
+        gridWrap.replaceWith(grid);
+        grid.id = 'hab-grid';
+
+        var lg = document.getElementById('hab-legend');
+        lg.textContent = '';
+        shown.forEach(function (h) {
+          var s = document.createElement('span');
+          s.style.setProperty('--hc', h.color);
+          s.innerHTML = '<i class="sw"></i>';
+          s.appendChild(document.createTextNode(h.name));
+          lg.appendChild(s);
+        });
+
+        var det = document.getElementById('hab-detail');
+        det.textContent = '';
+        var h4 = document.createElement('h4');
+        h4.textContent = relative(habDay) + (habDay > t ? '' : ', ' + human(habDay));
+        det.appendChild(h4);
+        var list = habitsOn(habDay);
+        if (habDay > t) {
+          det.insertAdjacentHTML(
+            'beforeend',
+            '<div class="empty-note">Этот день ещё не наступил.</div>',
+          );
+        } else if (!list.length) {
+          det.insertAdjacentHTML(
+            'beforeend',
+            '<div class="empty-note">В этот день привычек не было.</div>',
+          );
+        } else {
+          list.forEach(function (h) {
+            det.appendChild(habitRow(h, habDay, { compact: true }));
+          });
+        }
+      }
+
+      // ---------- Вкладка «Сделано» ----------
+      // ---------- Питание ----------
+      /*
+       * Отметки по дням в state.food[день]:
+       *   sweet, flour — 'none' (не ел) | 'some' (немного, норма) | 'over' (переборщил)
+       *   breakfast, lunch, dinner — 'good' | 'bad'; notes[приём] — что съел.
+       * В кольцо дня не входит: у питания свой итог дня.
+       */
+      var FOOD_LEVELS = [
+        { key: 'none', label: 'Не ел', cls: 'g' },
+        { key: 'some', label: 'Немного', cls: 'm' },
+        { key: 'over', label: 'Переборщил', cls: 'b' },
+      ];
+      var FOOD_ITEMS = [
+        {
+          key: 'sweet',
+          icon: '🍫',
+          name: 'Сладкое',
+          hint: 'норма: немного',
+          over: 'со сладким',
+        },
+        {
+          key: 'flour',
+          icon: '🥐',
+          name: 'Мучное',
+          hint: 'хлеб, выпечка, лапша',
+          over: 'с мучным',
+        },
+      ];
+      var MEALS = [
+        { key: 'breakfast', icon: '🍳', name: 'Завтрак', bad: 'завтрак' },
+        { key: 'lunch', icon: '🍲', name: 'Обед', bad: 'обед' },
+        { key: 'dinner', icon: '🍽', name: 'Ужин', bad: 'ужин' },
+      ];
+      var foodWeek = null;
+      var foodDay = null;
+      var foodMonth = null;
+
+      function foodOf(d) {
+        return state.food[d] || {};
+      }
+      function setFood(d, key, value) {
+        var f = state.food[d] || {};
+        if (f[key] === value) delete f[key];
+        else f[key] = value;
+        if (f[key] !== 'bad' && f.notes) delete f.notes[key];
+        state.food[d] = f;
+        if (!Object.keys(f).some((k) => k !== 'notes')) delete state.food[d];
+        save();
+      }
+      function setNote(d, meal, text) {
+        var f = state.food[d];
+        if (!f) return;
+        f.notes = f.notes || {};
+        if (text.trim()) f.notes[meal] = text.slice(0, 120);
+        else delete f.notes[meal];
+        save();
+      }
+      function dayScore(d) {
+        var f = foodOf(d);
+        var marked = 0;
+        var pts = 0;
+        var why = [];
+        FOOD_ITEMS.forEach(function (it) {
+          if (!f[it.key]) return;
+          marked++;
+          if (f[it.key] === 'over') {
+            pts += 2;
+            why.push('переборщил ' + it.over);
+          }
+        });
+        var bad = [];
+        MEALS.forEach(function (m) {
+          if (!f[m.key]) return;
+          marked++;
+          if (f[m.key] === 'bad') {
+            pts += 1;
+            bad.push(m.bad);
+          }
+        });
+        if (bad.length)
+          why.push(bad.join(', ') + (bad.length > 1 ? ' неполезные' : ' неполезный'));
+        if (!marked) return null;
+        var level = pts === 0 ? 'g' : pts <= 3 ? 'm' : 'b';
+        return {
+          level: level,
+          title: { g: 'Хороший день', m: 'Средне', b: 'Плохой день' }[level],
+          why: why.length ? cap(why.join(', ')) : 'Без перебора и неполезной еды',
+          marked: marked,
+        };
+      }
+      function cellClass(d, key) {
+        var v = foodOf(d)[key];
+        if (!v) return d > today() ? 'f' : '';
+        if (v === 'good' || v === 'none') return 'g';
+        if (v === 'some') return 'm';
+        return 'b';
+      }
+
+      function foodBlock(d) {
+        var t = today();
+        var editable = d <= t;
+        var f = foodOf(d);
+        var card = document.createElement('div');
+        card.className = 'food';
+
+        FOOD_ITEMS.forEach(function (it) {
+          var row = document.createElement('div');
+          row.className = 'food-row';
+          row.innerHTML =
+            '<div class="food-top"><span class="food-name"></span><span class="food-hint"></span></div>';
+          row.querySelector('.food-name').textContent = it.icon + ' ' + it.name;
+          row.querySelector('.food-hint').textContent = it.hint;
+          var seg = document.createElement('div');
+          seg.className = 'seg';
+          FOOD_LEVELS.forEach(function (lv) {
+            var b = document.createElement('button');
+            b.type = 'button';
+            b.className = lv.cls;
+            b.textContent = lv.label;
+            b.disabled = !editable;
+            b.setAttribute('aria-pressed', String(f[it.key] === lv.key));
+            b.setAttribute('aria-label', it.name + ': ' + lv.label);
+            b.addEventListener('click', function () {
+              setFood(d, it.key, lv.key);
+              renderAll();
+            });
+            seg.appendChild(b);
+          });
+          row.appendChild(seg);
+          card.appendChild(row);
+        });
+
+        MEALS.forEach(function (m) {
+          var row = document.createElement('div');
+          row.className = 'food-row';
+          var top = document.createElement('div');
+          top.className = 'meal';
+          top.innerHTML = '<span class="food-name"></span><div class="pair"></div>';
+          top.firstChild.textContent = m.icon + ' ' + m.name;
+          [
+            { key: 'good', label: '👍 Полезно', cls: 'g' },
+            { key: 'bad', label: '👎 Нет', cls: 'b' },
+          ].forEach(function (o) {
+            var b = document.createElement('button');
+            b.type = 'button';
+            b.className = o.cls;
+            b.textContent = o.label;
+            b.disabled = !editable;
+            b.setAttribute('aria-pressed', String(f[m.key] === o.key));
+            b.setAttribute(
+              'aria-label',
+              m.name + ': ' + (o.key === 'good' ? 'полезно' : 'неполезно'),
+            );
+            b.addEventListener('click', function () {
+              setFood(d, m.key, o.key);
+              renderAll();
+              if (o.key === 'bad' && foodOf(d)[m.key] === 'bad') {
+                var inp = document.querySelector('[data-note="' + d + m.key + '"]');
+                if (inp && inp.offsetParent) inp.focus();
+              }
+            });
+            top.lastChild.appendChild(b);
+          });
+          row.appendChild(top);
+          if (f[m.key] === 'bad') {
+            var note = document.createElement('input');
+            note.type = 'text';
+            note.className = 'food-note';
+            note.placeholder = 'Что съел? Можно не писать';
+            note.maxLength = 120;
+            note.value = (f.notes && f.notes[m.key]) || '';
+            note.disabled = !editable;
+            note.dataset.note = d + m.key;
+            note.setAttribute('aria-label', 'Что съел на ' + m.name.toLowerCase());
+            note.addEventListener('input', function () {
+              setNote(d, m.key, note.value);
+            });
+            note.addEventListener('keydown', function (e) {
+              if (e.key === 'Enter') note.blur();
+            });
+            row.appendChild(note);
+          }
+          card.appendChild(row);
+        });
+
+        var sc = dayScore(d);
+        var score = document.createElement('div');
+        score.className = 'score' + (sc ? ' ' + sc.level : '');
+        score.innerHTML = '<div class="big"></div><div><b></b><span></span></div>';
+        if (sc) {
+          score.querySelector('.big').textContent = { g: '✓', m: '!', b: '✕' }[sc.level];
+          score.querySelector('b').textContent = sc.title;
+          score.querySelector('span').textContent =
+            sc.why + (sc.marked < 5 ? ' · отмечено ' + sc.marked + ' из 5' : '');
+        } else {
+          score.querySelector('.big').textContent = '·';
+          score.querySelector('b').textContent = editable
+            ? 'Ещё ничего не отмечено'
+            : 'День не отмечен';
+          score.querySelector('span').textContent =
+            'Нажмите кнопки выше — займёт пару секунд';
+        }
+        card.appendChild(score);
+        return card;
+      }
+
+      function renderFood() {
+        var t = today();
+        if (!foodWeek) foodWeek = weekStart(t);
+        if (!foodDay) foodDay = t;
+        if (!foodMonth) foodMonth = monthStart(t);
+
+        // Неделя
+        var we = addDays(foodWeek, 6);
+        document.getElementById('food-week-title').textContent =
+          parse(foodWeek).getDate() +
+          (foodWeek.slice(5, 7) === we.slice(5, 7)
+            ? ''
+            : ' ' + human(foodWeek).split(' ')[1]) +
+          '–' +
+          human(we);
+        document.getElementById('food-week-next').disabled = foodWeek >= weekStart(t);
+        var g = document.getElementById('food-week');
+        g.textContent = '';
+        g.appendChild(document.createElement('span'));
+        for (var i = 0; i < 7; i++) {
+          (function (d) {
+            var h = document.createElement('button');
+            h.type = 'button';
+            h.className = 'h' + (d === t ? ' today' : '') + (d === foodDay ? ' sel' : '');
+            h.textContent = WD[i];
+            h.setAttribute('aria-label', human(d));
+            h.disabled = d > t;
+            h.addEventListener('click', function () {
+              foodDay = d;
+              renderFood();
+            });
+            g.appendChild(h);
+          })(addDays(foodWeek, i));
+        }
+        FOOD_ITEMS.concat(MEALS).forEach(function (it) {
+          var l = document.createElement('span');
+          l.className = 'l';
+          l.textContent = it.name;
+          g.appendChild(l);
+          for (var i = 0; i < 7; i++) {
+            (function (d) {
+              var c = document.createElement('button');
+              c.type = 'button';
+              c.className =
+                'c ' + cellClass(d, it.key) + (d === foodDay ? ' selcol' : '');
+              c.disabled = d > t;
+              c.setAttribute('aria-label', it.name + ', ' + human(d));
+              c.addEventListener('click', function () {
+                foodDay = d;
+                renderFood();
+              });
+              g.appendChild(c);
+            })(addDays(foodWeek, i));
+          }
+        });
+
+        // Выбранный день
+        var det = document.getElementById('food-detail');
+        det.textContent = '';
+        var h4 = document.createElement('h4');
+        var nearDay =
+          foodDay === t || foodDay === addDays(t, -1) || foodDay === addDays(t, 1);
+        h4.textContent = relative(foodDay) + (nearDay ? ', ' + human(foodDay) : '');
+        det.appendChild(h4);
+        det.appendChild(foodBlock(foodDay));
+
+        // Итоги месяца
+        var m = foodMonth;
+        document.getElementById('food-month-title').textContent =
+          monthName(m) + ' ' + m.slice(0, 4);
+        var first = Object.keys(state.food).sort()[0] || t;
+        document.getElementById('food-month-prev').disabled = m <= monthStart(first);
+        document.getElementById('food-month-next').disabled = m >= monthStart(t);
+        var st = document.getElementById('food-stats');
+        st.textContent = '';
+        var days = Object.keys(state.food).filter((d) => d >= m && d <= monthEnd(m));
+        var ins = document.getElementById('food-insight');
+        if (!days.length) {
+          st.innerHTML =
+            '<div class="empty-note">В этом месяце питание ещё не отмечено.</div>';
+          ins.hidden = true;
+          return;
+        }
+        FOOD_ITEMS.forEach(function (it) {
+          var c = { none: 0, some: 0, over: 0 };
+          days.forEach(function (d) {
+            var v = state.food[d][it.key];
+            if (v) c[v]++;
+          });
+          var n = c.none + c.some + c.over;
+          var row = document.createElement('div');
+          row.className = 'fst';
+          row.innerHTML =
+            '<span class="food-name"></span><span><b></b> <span class="food-hint"></span></span>' +
+            '<div class="fbar"></div><span class="food-hint"></span>';
+          row.querySelector('.food-name').textContent = it.icon + ' ' + it.name;
+          row.querySelector('b').textContent = c.over;
+          row.querySelector('span > .food-hint').textContent =
+            plural(c.over, 'день', 'дня', 'дней') + ' перебор';
+          var bar = row.querySelector('.fbar');
+          [
+            ['none', 'var(--good)'],
+            ['some', 'var(--mid)'],
+            ['over', 'var(--bad)'],
+          ].forEach(function (p) {
+            if (!n || !c[p[0]]) return;
+            var i = document.createElement('i');
+            i.style.width = (c[p[0]] / n) * 100 + '%';
+            i.style.background = p[1];
+            bar.appendChild(i);
+          });
+          row.lastChild.textContent = n
+            ? 'без ' +
+              (it.key === 'sweet' ? 'сладкого' : 'мучного') +
+              ' ' +
+              c.none +
+              ' · немного ' +
+              c.some +
+              ' · перебор ' +
+              c.over +
+              ' (из ' +
+              n +
+              ' ' +
+              plural(n, 'дня', 'дней', 'дней') +
+              ')'
+            : 'не отмечено';
+          st.appendChild(row);
+        });
+
+        var bad = {};
+        var good = 0;
+        var total = 0;
+        days.forEach(function (d) {
+          MEALS.forEach(function (ml) {
+            var v = state.food[d][ml.key];
+            if (v === 'bad') {
+              bad[ml.key] = (bad[ml.key] || 0) + 1;
+              total++;
+            } else if (v === 'good') good++;
+          });
+        });
+        var row = document.createElement('div');
+        row.className = 'fst';
+        row.innerHTML =
+          '<span class="food-name">Неполезная еда</span><span><b></b> <span class="food-hint"></span></span>' +
+          '<div class="fbar"></div><span class="food-hint"></span>';
+        row.querySelector('b').textContent = total;
+        row.querySelector('span > .food-hint').textContent = plural(
+          total,
+          'раз',
+          'раза',
+          'раз',
+        );
+        var shades = { breakfast: '#f2a19a', lunch: 'var(--bad)', dinner: '#e46a62' };
+        var bar = row.querySelector('.fbar');
+        MEALS.forEach(function (ml) {
+          if (!bad[ml.key]) return;
+          var i = document.createElement('i');
+          i.style.width = (bad[ml.key] / (total + good)) * 100 + '%';
+          i.style.background = shades[ml.key];
+          bar.appendChild(i);
+        });
+        if (good) {
+          var gi = document.createElement('i');
+          gi.style.width = (good / (total + good)) * 100 + '%';
+          gi.style.background = 'var(--good)';
+          bar.appendChild(gi);
+        }
+        row.lastChild.textContent =
+          MEALS.map((ml) => ml.bad + ' ' + (bad[ml.key] || 0)).join(' · ') +
+          ' · полезно ' +
+          good;
+        st.appendChild(row);
+
+        ins.hidden = false;
+        if (!total) {
+          ins.className = 'insight ok';
+          ins.textContent = 'В этом месяце неполезной еды не отмечено. Так держать!';
+        } else {
+          var max = Math.max.apply(
+            null,
+            MEALS.map((ml) => bad[ml.key] || 0),
+          );
+          var worst = MEALS.filter((ml) => (bad[ml.key] || 0) === max).map(
+            (ml) => ml.bad,
+          );
+          var notes = [];
+          days.forEach(function (d) {
+            var f = state.food[d];
+            MEALS.forEach(function (ml) {
+              if (worst.indexOf(ml.bad) !== -1 && f.notes && f.notes[ml.key])
+                notes.push(f.notes[ml.key]);
+            });
+          });
+          ins.className = 'insight';
+          ins.innerHTML =
+            'Чаще всего неполезно ешь в <b></b> — ' +
+            max +
+            ' ' +
+            plural(max, 'раз', 'раза', 'раз') +
+            ' за месяц.';
+          ins.querySelector('b').textContent = worst.join(' и ');
+          if (notes.length) {
+            ins.appendChild(
+              document.createTextNode(
+                ' Что было: ' + notes.slice(-3).reverse().join('; ') + '.',
+              ),
+            );
+          }
+        }
+      }
+
+      function plural(n, one, few, many) {
+        var m10 = n % 10;
+        var m100 = n % 100;
+        if (m10 === 1 && m100 !== 11) return one;
+        if (m10 >= 2 && m10 <= 4 && (m100 < 12 || m100 > 14)) return few;
+        return many;
+      }
+      function renderDone() {
+        var done = state.tasks
+          .filter((x) => x.done)
+          .sort((a, b) => (a.doneDay < b.doneDay ? 1 : a.doneDay > b.doneDay ? -1 : 0));
+        document.getElementById('done-total').textContent = done.length;
+        document.getElementById('done-total-label').textContent = plural(
+          done.length,
+          'дело завершено',
+          'дела завершено',
+          'дел завершено',
+        );
+        var wrap = document.getElementById('done-groups');
+        wrap.textContent = '';
+        if (!done.length) {
+          var e = document.createElement('div');
+          e.className = 'card empty';
+          e.textContent = 'Здесь появятся сделанные задачи.';
+          wrap.appendChild(e);
+          return;
+        }
+        var groups = {};
+        var order = [];
+        done.forEach(function (x) {
+          if (!groups[x.doneDay]) {
+            groups[x.doneDay] = [];
+            order.push(x.doneDay);
+          }
+          groups[x.doneDay].push({ task: x });
+        });
+        order.forEach(function (d) {
+          var sec = document.createElement('div');
+          sec.className = 'section';
+          var h = document.createElement('h2');
+          h.innerHTML = '<span></span><span></span>';
+          h.firstChild.textContent = relative(d);
+          h.lastChild.textContent = groups[d].length;
+          var card = document.createElement('div');
+          card.className = 'card';
+          var ul = document.createElement('ul');
+          ul.className = 'tasks';
+          fill(ul, groups[d]);
+          card.appendChild(ul);
+          sec.appendChild(h);
+          sec.appendChild(card);
+          wrap.appendChild(sec);
+        });
+      }
+
+      // ---------- Общее ----------
+      function renderHeader() {
+        var t = today();
+        document.getElementById('today-label').textContent = cap(
+          new Date().toLocaleDateString('ru-RU', {
+            weekday: 'long',
+            day: 'numeric',
+            month: 'long',
+          }),
+        );
+        var s = liveStats(t);
+        var r = document.getElementById('today-ring');
+        r.textContent = '';
+        r.appendChild(ring(s.done, s.total, 76, 11));
+        var pct = document.createElement('b');
+        pct.textContent = s.total ? Math.round((s.done / s.total) * 100) + '%' : '—';
+        r.appendChild(pct);
+        var open = s.total - s.done;
+        document.getElementById('today-sub').textContent = s.total
+          ? 'Сделано ' +
+            s.done +
+            ' из ' +
+            s.total +
+            (open ? ', осталось ' + open : ' — всё готово')
+          : 'На сегодня пусто';
+        var doneCount = state.tasks.filter((x) => x.done).length;
+        document.querySelector('[data-tab="done"]').textContent =
+          'Сделано' + (doneCount ? ' · ' + doneCount : '');
+      }
+      function renderAll() {
+        freeze();
+        renderHeader();
+        ['day', 'cal', 'hab', 'food', 'done'].forEach(function (k) {
+          document.getElementById('view-' + k).hidden = tab !== k;
+        });
+        document.querySelectorAll('[data-tab]').forEach(function (b) {
+          b.setAttribute('aria-selected', String(b.dataset.tab === tab));
+        });
+        if (tab === 'day') renderDay();
+        if (tab === 'cal') renderCal();
+        if (tab === 'hab') renderHabits();
+        if (tab === 'food') renderFood();
+        if (tab === 'done') renderDone();
+      }
+
+      // ---------- Правка текста задачи ----------
+      function startEdit(el, t) {
+        if (el.isContentEditable) return;
+        el.contentEditable = 'true';
+        el.focus();
+        var range = document.createRange();
+        range.selectNodeContents(el);
+        range.collapse(false);
+        var sel = window.getSelection();
+        sel.removeAllRanges();
+        sel.addRange(range);
+        function finish(keep) {
+          el.removeEventListener('blur', onBlur);
+          el.removeEventListener('keydown', onKey);
+          el.contentEditable = 'false';
+          var v = el.textContent.trim();
+          if (keep && v) {
+            t.text = v.slice(0, 300);
+            save();
+          }
+          renderAll();
+        }
+        function onBlur() {
+          finish(true);
+        }
+        function onKey(e) {
+          if (e.key === 'Enter') {
+            e.preventDefault();
+            el.blur();
+          } else if (e.key === 'Escape') {
+            el.removeEventListener('blur', onBlur);
+            finish(false);
+          }
+        }
+        el.addEventListener('blur', onBlur);
+        el.addEventListener('keydown', onKey);
+      }
+
+      // ---------- Отмена ----------
+      function snapshot() {
+        undoSnapshot = JSON.stringify(state);
+      }
+      function showToast(message, undoable) {
+        document.getElementById('toast-text').textContent = message;
+        document.getElementById('undo').hidden = !undoable;
+        if (!undoable) undoSnapshot = null;
+        document.getElementById('toast').hidden = false;
+        clearTimeout(toastTimer);
+        toastTimer = setTimeout(hideToast, 4000);
+      }
+      function hideToast() {
+        document.getElementById('toast').hidden = true;
+        undoSnapshot = null;
+      }
+      document.getElementById('undo').addEventListener('click', function () {
+        if (undoSnapshot) {
+          state = JSON.parse(undoSnapshot);
+          save();
+          renderAll();
+        }
+        hideToast();
+      });
+
+      // ---------- События ----------
+      var dateInput = document.getElementById('new-date');
+      dateInput.min = today();
+      dateInput.value = today();
+
+      document.getElementById('add').addEventListener('submit', function (e) {
+        e.preventDefault();
+        var input = document.getElementById('new-text');
+        var text = input.value.trim();
+        if (!text) {
+          input.focus();
+          return;
+        }
+        var dailyBox = document.getElementById('new-daily');
+        if (dailyBox.checked) {
+          var used = state.habits.map((h) => h.color);
+          state.habits.push({
+            id: uid(),
+            name: text.slice(0, 60),
+            kind: 'daily',
+            start: today(),
+            stopped: null,
+            color:
+              COLORS.find((c) => used.indexOf(c) === -1) ||
+              COLORS[state.habits.length % COLORS.length],
+          });
+          save();
+          dailyBox.checked = false;
+          input.value = '';
+          renderAll();
+          showToast('Привычка добавлена — будет каждый день');
+          input.focus();
+          return;
+        }
+        var d = dateInput.value && dateInput.value > today() ? dateInput.value : today();
+        state.tasks.push({
+          id: uid(),
+          text: text.slice(0, 300),
+          date: d,
+          done: false,
+          doneDay: null,
+          created: Date.now(),
+        });
+        save();
+        input.value = '';
+        dateInput.value = today();
+        renderAll();
+        if (d !== today()) showToast('Добавлено на ' + relative(d).toLowerCase());
+        input.focus();
+      });
+
+      document.querySelectorAll('[data-tab]').forEach(function (b) {
+        b.addEventListener('click', function () {
+          tab = b.dataset.tab;
+          if (tab === 'cal') selectedDay = today();
+          if (tab === 'hab') {
+            habMonth = monthStart(today());
+            habDay = today();
+          }
+          if (tab === 'food') {
+            foodWeek = weekStart(today());
+            foodDay = today();
+            foodMonth = monthStart(today());
+          }
+          renderAll();
+          window.scrollTo(0, 0);
+        });
+      });
+      document.getElementById('hab-prev').addEventListener('click', function () {
+        habMonth = addMonths(habMonth, -1);
+        habDay = monthEnd(habMonth);
+        renderHabits();
+      });
+      document.getElementById('hab-next').addEventListener('click', function () {
+        habMonth = addMonths(habMonth, 1);
+        habDay = habMonth === monthStart(today()) ? today() : monthEnd(habMonth);
+        renderHabits();
+      });
+
+      document.getElementById('food-week-prev').addEventListener('click', function () {
+        foodWeek = addDays(foodWeek, -7);
+        foodDay = addDays(foodWeek, 6);
+        renderFood();
+      });
+      document.getElementById('food-week-next').addEventListener('click', function () {
+        foodWeek = addDays(foodWeek, 7);
+        foodDay = foodWeek === weekStart(today()) ? today() : addDays(foodWeek, 6);
+        renderFood();
+      });
+      document.getElementById('food-month-prev').addEventListener('click', function () {
+        foodMonth = addMonths(foodMonth, -1);
+        renderFood();
+      });
+      document.getElementById('food-month-next').addEventListener('click', function () {
+        foodMonth = addMonths(foodMonth, 1);
+        renderFood();
+      });
+
+      // Данные изменились на другом устройстве или через бота.
+      window.__applyRemote = function (raw) {
+        window.__SERVER_DATA__ = raw;
+        state = load();
+        renderAll();
+      };
+      var shownDay = today();
+      document.addEventListener('visibilitychange', function () {
+        if (!document.hidden && today() !== shownDay) {
+          shownDay = today();
+          dateInput.min = today();
+          dateInput.value = today();
+          renderAll();
+        }
+      });
+
+      save();
+      renderAll();
+      }
+    </script>
+    <script src="sync.js"></script>
+  </body>
+</html>

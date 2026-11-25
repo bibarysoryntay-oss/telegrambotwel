@@ -5,9 +5,9 @@ from __future__ import annotations
 from datetime import date
 from html import escape
 
-from telegram import InlineKeyboardButton, InlineKeyboardMarkup
+from telegram import InlineKeyboardButton, InlineKeyboardMarkup, WebAppInfo
 
-from .db import Task
+from .tasks import Task
 
 WEEKDAYS = ["понедельник", "вторник", "среда", "четверг", "пятница", "суббота", "воскресенье"]
 MONTHS = ["января", "февраля", "марта", "апреля", "мая", "июня", "июля",
@@ -41,10 +41,19 @@ def progress_bar(done: int, total: int, width: int = 10) -> str:
     return "▓" * filled + "░" * (width - filled) + f" {done}/{total}"
 
 
-def task_list_text(tasks: list[Task], day: date, title: str = "Задачи на") -> str:
+def task_list_text(
+    tasks: list[Task], day: date, title: str = "Задачи на", habits: list[tuple[str, bool]] | None = None
+) -> str:
     header = f"<b>{title} {escape(human_date(day))}</b>"
+    habit_lines = []
+    if habits:
+        habit_lines = ["", "<b>Привычки</b>"] + [
+            f"{'✅' if ok else '⬜'} {escape(name)}" for name, ok in habits
+        ]
     if not tasks:
-        return header + "\n\nПока пусто. Просто напишите задачу сообщением — каждая строка станет отдельной задачей."
+        return header + "\n\nПока пусто. Просто напишите задачу сообщением — каждая строка станет отдельной задачей." + (
+            "\n" + "\n".join(habit_lines) if habit_lines else ""
+        )
     lines = [header, ""]
     for i, t in enumerate(tasks, 1):
         mark = "✅" if t.done else "⬜"
@@ -55,14 +64,16 @@ def task_list_text(tasks: list[Task], day: date, title: str = "Задачи на
     lines += ["", progress_bar(done, len(tasks))]
     if done == len(tasks):
         lines.append("🎉 Всё выполнено!")
-    return "\n".join(lines)
+    return "\n".join(lines + habit_lines)
 
 
 def _short(text: str, n: int = 28) -> str:
     return text if len(text) <= n else text[: n - 1] + "…"
 
 
-def task_list_keyboard(tasks: list[Task], mode: str = "done") -> InlineKeyboardMarkup | None:
+def task_list_keyboard(
+    tasks: list[Task], mode: str = "done", webapp_url: str = ""
+) -> InlineKeyboardMarkup | None:
     """mode: done — отмечать выполнение, edit — удалять/переносить на завтра."""
     rows: list[list[InlineKeyboardButton]] = []
     for i, t in enumerate(tasks, 1):
@@ -81,10 +92,12 @@ def task_list_keyboard(tasks: list[Task], mode: str = "done") -> InlineKeyboardM
             InlineKeyboardButton("✏️ Изменить", callback_data="mode:edit"),
             InlineKeyboardButton("🔄 Обновить", callback_data="mode:done"),
         ])
+    if webapp_url and mode != "edit":
+        rows.append([InlineKeyboardButton("📱 Открыть приложение", web_app=WebAppInfo(webapp_url))])
     return InlineKeyboardMarkup(rows) if rows else None
 
 
-def evening_text(tasks: list[Task], day: date) -> str:
+def evening_text(tasks: list[Task], day: date, habits: list[tuple[str, bool]] | None = None) -> str:
     done = [t for t in tasks if t.done]
     left = [t for t in tasks if not t.done]
     lines = [f"<b>🌙 Итоги дня · {escape(human_date(day))}</b>", ""]
@@ -96,6 +109,10 @@ def evening_text(tasks: list[Task], day: date) -> str:
         lines += [f"⬜ {escape(t.text)}" for t in left]
     else:
         lines += ["", "🎉 Все задачи выполнены. Отличный день!"]
+    if habits:
+        missed = [name for name, ok in habits if not ok]
+        lines += ["", f"Привычки: {len(habits) - len(missed)} из {len(habits)}"]
+        lines += [f"⬜ {escape(name)}" for name in missed]
     return "\n".join(lines)
 
 

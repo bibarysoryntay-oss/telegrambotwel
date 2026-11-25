@@ -40,3 +40,8 @@ class Settings:
     morning_time: str = field(default_factory=lambda: _env("TASKS_MORNING_TIME", "09:00"))
     evening_time: str = field(default_factory=lambda: _env("TASKS_EVENING_TIME", "21:00"))
     db_path: str = field(default_factory=lambda: _env("TASKS_DB_PATH", "data/tasks.db"))
+    # Приложение в Telegram (Mini App). Railway сам задаёт PORT и RAILWAY_PUBLIC_DOMAIN.
+    web_port: int = field(default_factory=lambda: int(_env("PORT", _env("TASKS_WEB_PORT", "8080"))))
+    webapp_url: str = field(default_factory=lambda: _env("TASKS_WEBAPP_URL") or (
+        f"https://{_env('RAILWAY_PUBLIC_DOMAIN')}/" if _env("RAILWAY_PUBLIC_DOMAIN") else ""
+    ))
