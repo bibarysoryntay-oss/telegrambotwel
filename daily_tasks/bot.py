@@ -305,7 +305,11 @@ class TasksBot:
 
 def main() -> None:
     logging.basicConfig(format="%(asctime)s %(levelname)s %(name)s: %(message)s", level=logging.INFO)
+    # httpx пишет в лог адрес каждого запроса, а в нём есть токен бота — скрываем.
+    logging.getLogger("httpx").setLevel(logging.WARNING)
+    logging.getLogger("apscheduler").setLevel(logging.WARNING)
     settings = Settings()
     if not settings.token:
         raise SystemExit("Не задан TASKS_BOT_TOKEN в .env (токен от @BotFather).")
+    print("✅ Бот задач запущен. Не закрывайте это окно. Остановить: Control + C")
     TasksBot(settings).build().run_polling(allowed_updates=Update.ALL_TYPES)
