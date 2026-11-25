@@ -369,7 +369,7 @@ class TasksBot:
             await app.bot.set_my_commands([BotCommand(c, d) for c, d in COMMANDS])
         except Exception:
             log.exception("Не удалось установить меню команд")
-        runner = web.AppRunner(make_app(self.store, self.s.token, self.s.allowed_chat_ids))
+        runner = web.AppRunner(make_app(self.store, self.s.token, self.s.allowed_chat_ids, self.today))
         await runner.setup()
         await web.TCPSite(runner, "0.0.0.0", self.s.web_port).start()
         self.web_runner = runner

@@ -146,7 +146,46 @@
         padding: 8px;
         margin-bottom: 18px;
       }
+      .text-row {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        min-width: 0;
+      }
+      .mic {
+        flex: none;
+        width: 40px;
+        height: 40px;
+        border-radius: 50%;
+        border: 1px solid var(--line);
+        background: var(--bg);
+        color: var(--accent);
+        display: grid;
+        place-items: center;
+        cursor: pointer;
+        padding: 0;
+      }
+      .mic svg {
+        width: 20px;
+        height: 20px;
+      }
+      .mic.rec {
+        background: var(--ring);
+        border-color: var(--ring);
+        color: #fff;
+        animation: micpulse 1.2s ease-in-out infinite;
+      }
+      .mic.busy {
+        opacity: 0.55;
+        cursor: progress;
+      }
+      @keyframes micpulse {
+        50% {
+          box-shadow: 0 0 0 7px var(--ring-track);
+        }
+      }
       form.add input[type='text'] {
+        flex: 1;
         min-width: 0;
         border: 0;
         background: transparent;
@@ -204,7 +243,7 @@
         form.add {
           grid-template-columns: 1fr auto;
         }
-        form.add input[type='text'] {
+        form.add .text-row {
           grid-column: 1 / -1;
         }
         form.add input[type='date'] {
@@ -1109,13 +1148,18 @@
       <!-- ===== Сегодня ===== -->
       <section id="view-day">
         <form class="add" id="add" autocomplete="off">
-          <input
-            type="text"
-            id="new-text"
-            placeholder="Новая задача…"
-            maxlength="300"
-            aria-label="Новая задача"
-          />
+          <div class="text-row">
+            <input
+              type="text"
+              id="new-text"
+              placeholder="Новая задача…"
+              maxlength="300"
+              aria-label="Новая задача"
+            />
+            <button type="button" class="mic" id="mic" aria-label="Надиктовать задачу" title="Надиктовать задачу">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5.5 11a6.5 6.5 0 0 0 13 0M12 17.5V21"/></svg>
+            </button>
+          </div>
           <input type="date" id="new-date" aria-label="На какой день" />
           <button class="btn" type="submit">Добавить</button>
           <label class="repeat">

@@ -16,12 +16,18 @@ from urllib.parse import parse_qsl
 
 from aiohttp import web
 
+from datetime import date
+from typing import Callable
+
+from . import tasks as T
+from . import voice as V
 from .store import Conflict, Store
 
 log = logging.getLogger(__name__)
 
 STATIC = Path(__file__).resolve().parent / "static"
 MAX_AGE = 30 * 24 * 3600  # initData старше 30 дней не принимаем
+MAX_AUDIO = 10 * 1024 * 1024
 
 
 def check_init_data(init_data: str, token: str, now: float | None = None) -> int | None:
@@ -54,7 +60,9 @@ def check_init_data(init_data: str, token: str, now: float | None = None) -> int
     return user_id
 
 
-def make_app(store: Store, token: str, allowed_ids: tuple[int, ...] = ()) -> web.Application:
+def make_app(
+    store: Store, token: str, allowed_ids: tuple[int, ...] = (), today: Callable[[], date] = date.today
+) -> web.Application:
     def auth(request: web.Request) -> int:
         user_id = check_init_data(request.headers.get("X-Init-Data", ""), token)
         if user_id is None:
@@ -85,18 +93,43 @@ def make_app(store: Store, token: str, allowed_ids: tuple[int, ...] = ()) -> web
             raise web.HTTPBadRequest(text=f"Неверные данные: {e}")
         return web.json_response({"version": version})
 
+    async def voice(request: web.Request) -> web.Response:
+        user_id = auth(request)
+        cfg = V.stt_config()
+        if not cfg:
+            return web.json_response(
+                {"error": "Голосовые не подключены: на сервере нет ключа для распознавания речи."}, status=503
+            )
+        audio = await request.read()
+        if not audio:
+            return web.json_response({"error": "Пустая запись."}, status=400)
+        if len(audio) > MAX_AUDIO:
+            return web.json_response({"error": "Слишком длинная запись — до 2 минут."}, status=413)
+        mime = request.content_type or "audio/webm"
+        try:
+            text = await V.transcribe(audio, V.filename_for(mime), cfg, mime)
+        except V.TranscriptionError as e:
+            return web.json_response({"error": f"Не получилось распознать: {e}."}, status=502)
+        items = await V.extract_tasks(text, today())
+        if items:
+            with store.edit(user_id) as state:
+                T.add_items(state, items)
+        raw, version = store.get_raw(user_id)
+        return web.json_response({"text": text, "added": len(items), "data": raw, "version": version})
+
     async def sync_js(request: web.Request) -> web.StreamResponse:
         return web.FileResponse(STATIC / "sync.js", headers={"Cache-Control": "no-cache"})
 
     async def health(request: web.Request) -> web.Response:
         return web.Response(text="ok")
 
-    app = web.Application(client_max_size=4 * 1024 * 1024)
+    app = web.Application(client_max_size=MAX_AUDIO + 1024 * 1024)
     app.add_routes([
         web.get("/", index),
         web.get("/sync.js", sync_js),
         web.get("/health", health),
         web.get("/api/state", get_state),
         web.put("/api/state", put_state),
+        web.post("/api/voice", voice),
     ])
     return app

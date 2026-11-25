@@ -51,13 +51,13 @@ def stt_config() -> STTConfig | None:
     return None
 
 
-async def transcribe(audio: bytes, filename: str, cfg: STTConfig) -> str:
+async def transcribe(audio: bytes, filename: str, cfg: STTConfig, mime: str = "audio/ogg") -> str:
     async with httpx.AsyncClient(timeout=60) as client:
         r = await client.post(
             cfg.url,
             headers={"Authorization": f"Bearer {cfg.key}"},
             data={"model": cfg.model},
-            files={"file": (filename, audio, "audio/ogg")},
+            files={"file": (filename, audio, mime)},
         )
     if r.status_code != 200:
         log.warning("Распознавание речи: %s %s", r.status_code, r.text[:300])
@@ -66,6 +66,16 @@ async def transcribe(audio: bytes, filename: str, cfg: STTConfig) -> str:
     if not text:
         raise TranscriptionError("в сообщении не удалось разобрать речь")
     return text
+
+
+def filename_for(mime: str) -> str:
+    """Имя файла с правильным расширением — по нему сервис понимает формат."""
+    mime = (mime or "").lower()
+    for key, ext in (("webm", "webm"), ("mp4", "mp4"), ("m4a", "m4a"), ("aac", "m4a"),
+                     ("mpeg", "mp3"), ("wav", "wav"), ("ogg", "ogg")):
+        if key in mime:
+            return f"voice.{ext}"
+    return "voice.webm"
 
 
 # --- текст → задачи ---

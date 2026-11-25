@@ -147,6 +147,25 @@
       });
   }
 
+  window.__sendVoice = function (blob) {
+    return fetch('api/voice', {
+      method: 'POST',
+      headers: { 'Content-Type': blob.type || 'audio/webm', 'X-Init-Data': initData },
+      body: blob,
+    }).then(function (r) {
+      return r.json().then(function (res) {
+        if (!r.ok) throw new Error(res.error || 'Не получилось распознать.');
+        // Сервер уже добавил задачи — показываем новые данные.
+        if (res.data && !sending && pending === null) {
+          version = res.version;
+          lastSent = res.data;
+          window.__applyRemote(res.data);
+        }
+        return res;
+      });
+    });
+  };
+
   window.__sync = function (json) {
     if (!started) return;
     pending = json;
@@ -204,4 +223,123 @@
     .catch(function () {
       fatal('Не удалось загрузить данные. Проверьте интернет и откройте приложение ещё раз.');
     });
+})();
+
+/*
+ * Голосом прямо в приложении: кнопка микрофона рядом с полем «Новая задача».
+ * Нажали — запись, нажали ещё раз — отправка. Сервер распознаёт речь и
+ * добавляет задачи (с датами, если сказать «завтра», «в пятницу»).
+ */
+(function () {
+  var btn = document.getElementById('mic');
+  var input = document.getElementById('new-text');
+  if (!btn || !input) return;
+  var tg = window.Telegram && window.Telegram.WebApp;
+  var recorder = null;
+  var chunks = [];
+  var timer = null;
+  var startedAt = 0;
+  var placeholder = input.placeholder;
+
+  function say(text) {
+    var t = document.getElementById('toast');
+    var tt = document.getElementById('toast-text');
+    var undo = document.getElementById('undo');
+    if (!t || !tt) return;
+    tt.textContent = text;
+    if (undo) undo.hidden = true;
+    t.hidden = false;
+    clearTimeout(say.timer);
+    say.timer = setTimeout(function () {
+      t.hidden = true;
+    }, 5000);
+  }
+
+  function pickType() {
+    var types = ['audio/webm;codecs=opus', 'audio/webm', 'audio/mp4', 'audio/ogg;codecs=opus'];
+    if (!window.MediaRecorder || !MediaRecorder.isTypeSupported) return '';
+    for (var i = 0; i < types.length; i++) if (MediaRecorder.isTypeSupported(types[i])) return types[i];
+    return '';
+  }
+
+  function noMic() {
+    say('Здесь микрофон недоступен. Отправьте голосовое боту в чат — задачи появятся тут.');
+  }
+
+  function stopTimer() {
+    clearInterval(timer);
+    input.placeholder = placeholder;
+  }
+
+  function start() {
+    if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia || !window.MediaRecorder) {
+      noMic();
+      return;
+    }
+    navigator.mediaDevices
+      .getUserMedia({ audio: true })
+      .then(function (stream) {
+        var type = pickType();
+        recorder = type ? new MediaRecorder(stream, { mimeType: type }) : new MediaRecorder(stream);
+        chunks = [];
+        recorder.ondataavailable = function (e) {
+          if (e.data && e.data.size) chunks.push(e.data);
+        };
+        recorder.onstop = function () {
+          stream.getTracks().forEach(function (t) {
+            t.stop();
+          });
+          send(new Blob(chunks, { type: recorder.mimeType || type || 'audio/webm' }));
+          recorder = null;
+        };
+        recorder.start();
+        startedAt = Date.now();
+        btn.classList.add('rec');
+        btn.setAttribute('aria-label', 'Закончить запись');
+        input.value = '';
+        input.placeholder = 'Говорите… 0:00';
+        timer = setInterval(function () {
+          var s = Math.round((Date.now() - startedAt) / 1000);
+          input.placeholder = 'Говорите… ' + Math.floor(s / 60) + ':' + String(s % 60).padStart(2, '0');
+          if (s >= 120) stop();
+        }, 500);
+        if (tg && tg.HapticFeedback) tg.HapticFeedback.impactOccurred('light');
+      })
+      .catch(noMic);
+  }
+
+  function stop() {
+    stopTimer();
+    btn.classList.remove('rec');
+    btn.setAttribute('aria-label', 'Надиктовать задачу');
+    if (recorder && recorder.state !== 'inactive') recorder.stop();
+  }
+
+  function send(blob) {
+    if (Date.now() - startedAt < 600 || !blob.size) {
+      say('Слишком коротко — нажмите микрофон и говорите.');
+      return;
+    }
+    btn.classList.add('busy');
+    input.placeholder = 'Распознаю…';
+    window.__sendVoice(blob)
+      .then(function (res) {
+        if (!res.added) say('🎙 «' + res.text + '» — задач не нашёл.');
+        else say('🎙 «' + res.text + '» — добавлено: ' + res.added);
+        if (tg && tg.HapticFeedback) tg.HapticFeedback.notificationOccurred('success');
+      })
+      .catch(function (e) {
+        say(e && e.message ? e.message : 'Не получилось распознать. Попробуйте ещё раз.');
+      })
+      .then(function () {
+        btn.classList.remove('busy');
+        input.placeholder = placeholder;
+      });
+  }
+
+  btn.addEventListener('click', function () {
+    if (btn.classList.contains('busy')) return;
+    if (recorder) stop();
+    else start();
+  });
 })();
